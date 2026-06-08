@@ -58,7 +58,14 @@ Each run writes a self-contained workspace:
 wraith-runs/example.com-<timestamp>/
 ├── workspace.json   # every host, service, endpoint and finding (resumable)
 ├── report.md        # human-readable report
-└── report.html      # dark, self-contained HTML report
+├── report.html      # dark, self-contained HTML report
+└── findings.json    # machine-readable findings
+```
+
+Gate a pipeline on severity:
+
+```bash
+wraith run example.com --fail-on high   # exit code 2 if a High+ finding is seen
 ```
 
 ## Access control & IDOR
@@ -130,6 +137,40 @@ wraith(shell)> interact 1             # attach (detach with Ctrl-])
 It catches reverse shells on every listener, tracks each as a numbered session,
 generates payloads for `bash`, `python3`, `php`, `perl`, `nc` and `powershell`,
 and upgrades a raw shell to a full PTY (`python pty.spawn` + raw local terminal).
+
+## Web vulnerabilities
+
+Two phases test the web layer directly:
+
+- **`injection`** crawls the target, collects parameters from query strings and
+  HTML forms, and tests each for **reflected XSS** (a raw `<`/`>`/`"` payload must
+  reflect unencoded), **error-based SQLi** (a quote must induce a DB error absent
+  from the baseline) and **open redirect** (a redirect param must land in
+  `Location`).
+- **`security-headers`** audits missing hardening headers (CSP, X-Frame-Options,
+  nosniff, HSTS, Referrer-Policy), insecure cookie flags (HttpOnly / Secure /
+  SameSite) and dangerous **CORS** reflection.
+
+## Capturing a session
+
+`access-control` needs authenticated sessions. `wraith login` performs a form
+login and writes a ready-to-use `sessions.json`:
+
+```bash
+wraith login http://target/login -u alice -p secret \
+    --user-field user --pass-field password --role low -o sessions.json
+```
+
+## The lab
+
+`examples/vuln_app.py` is a deliberately vulnerable app to practise against and
+to exercise every web phase (BAC, IDOR, XSS, SQLi, open redirect, CORS, insecure
+cookies, missing headers):
+
+```bash
+python3 examples/vuln_app.py &
+wraith run 127.0.0.1 --sessions examples/sessions.json
+```
 
 ## Templates
 
@@ -204,15 +245,18 @@ Built:
 - [x] `tech-detect` — fingerprint server / language / framework / CMS
 - [x] `vhost` — virtual-host discovery via Host-header fuzzing
 - [x] `template-checks` — declarative vulnerability templates (nuclei-lite)
+- [x] `security-headers` — security headers, cookie flags and CORS audit
+- [x] `injection` — reflected XSS, error-based SQLi and open redirect
 - [x] `shell` — post-exploitation handler: multi-listener, session management,
       automatic PTY upgrade and reverse-shell payload generation
-- [x] Markdown + dark HTML reporting
+- [x] `wraith login` — capture an authenticated session to `sessions.json`
+- [x] Markdown + dark HTML + JSON reporting, `--fail-on` for CI gating
 - [x] CI (GitHub Actions) running the test suite on Python 3.10–3.12
 
 Next:
 
-- [ ] authenticated session-capture helper
 - [ ] request throttling / rate control
+- [ ] authenticated re-crawl feeding the injection phase
 
 ## Development
 
@@ -222,8 +266,14 @@ pytest
 ```
 
 The test suite covers the engine's DAG scheduling and failure handling, payload
-generation, technology fingerprinting, the IDOR id-mutation logic, workspace
-persistence and reporting.
+generation, technology fingerprinting, the IDOR id-mutation logic, the injection
+and security-header detectors, web parsing, workspace persistence and reporting.
+
+Extending wraith:
+
+- [docs/writing-a-phase.md](docs/writing-a-phase.md) — add a kill-chain stage
+- [docs/writing-a-template.md](docs/writing-a-template.md) — add a check without code
+- [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Legal
 
