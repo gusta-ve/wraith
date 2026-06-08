@@ -1,0 +1,19 @@
+{
+  "id": "apache-server-status",
+  "info": {
+    "name": "Apache server-status exposed",
+    "severity": "medium",
+    "description": "mod_status is publicly accessible, leaking active requests, client IPs and server internals."
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/server-status",
+      "matchers-condition": "and",
+      "matchers": [
+        { "type": "status", "status": [200] },
+        { "type": "word", "part": "body", "condition": "and", "words": ["Apache Server Status"] }
+      ]
+    }
+  ]
+}

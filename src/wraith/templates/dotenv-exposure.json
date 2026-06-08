@@ -1,0 +1,20 @@
+{
+  "id": "dotenv-exposure",
+  "info": {
+    "name": "Exposed .env file",
+    "severity": "high",
+    "description": "An environment file is publicly accessible and may leak credentials, API keys and app secrets."
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/.env",
+      "matchers-condition": "and",
+      "matchers": [
+        { "type": "status", "status": [200] },
+        { "type": "regex", "part": "body", "condition": "or",
+          "regex": ["DB_(HOST|PASSWORD|USERNAME|DATABASE)", "APP_KEY=", "API_KEY=", "SECRET"] }
+      ]
+    }
+  ]
+}

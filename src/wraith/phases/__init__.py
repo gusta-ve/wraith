@@ -7,5 +7,6 @@ from . import (  # noqa: F401
     content_discovery,
     tech_detect,
     vhost,
+    template_checks,
     access_control,
 )

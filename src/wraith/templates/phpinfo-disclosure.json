@@ -1,0 +1,28 @@
+{
+  "id": "phpinfo-disclosure",
+  "info": {
+    "name": "phpinfo() disclosure",
+    "severity": "medium",
+    "description": "A phpinfo() page exposes server configuration, environment and paths."
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/phpinfo.php",
+      "matchers-condition": "and",
+      "matchers": [
+        { "type": "status", "status": [200] },
+        { "type": "word", "part": "body", "condition": "or", "words": ["phpinfo()", "PHP Version"] }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/info.php",
+      "matchers-condition": "and",
+      "matchers": [
+        { "type": "status", "status": [200] },
+        { "type": "word", "part": "body", "condition": "or", "words": ["phpinfo()", "PHP Version"] }
+      ]
+    }
+  ]
+}

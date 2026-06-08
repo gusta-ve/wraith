@@ -1,0 +1,26 @@
+{
+  "id": "swagger-ui",
+  "info": {
+    "name": "Swagger / OpenAPI UI exposed",
+    "severity": "info",
+    "description": "API documentation UI is publicly accessible and maps the application's attack surface."
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/swagger-ui.html",
+      "matchers-condition": "or",
+      "matchers": [
+        { "type": "word", "part": "body", "condition": "or", "words": ["Swagger UI", "swagger-ui"] }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/swagger/index.html",
+      "matchers-condition": "or",
+      "matchers": [
+        { "type": "word", "part": "body", "condition": "or", "words": ["Swagger UI", "swagger-ui"] }
+      ]
+    }
+  ]
+}

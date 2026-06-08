@@ -64,6 +64,8 @@ def cmd_run(args) -> None:
         _load_sessions(ws, args.sessions, c)
     if args.wordlist:
         ws.meta["wordlist"] = args.wordlist
+    if args.templates:
+        ws.meta["templates"] = args.templates
     c.info(f"target   {ws.target}")
     c.info(f"workdir  {ws.workdir}")
     c.info(f"phases   {', '.join(p.name for p in phases)}")
@@ -113,6 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--concurrency", type=int, default=8, help="max phases running in parallel")
     run.add_argument("--sessions", help="JSON file with sessions/base_url/seeds (for access-control)")
     run.add_argument("--wordlist", help="path to a wordlist for content-discovery")
+    run.add_argument("--templates", help="extra directory of template-checks templates")
     run.add_argument("--workdir", default="wraith-runs", help="base directory for run output")
     run.set_defaults(func=cmd_run)
 

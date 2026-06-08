@@ -1,0 +1,19 @@
+{
+  "id": "git-config-exposure",
+  "info": {
+    "name": "Exposed .git/config",
+    "severity": "high",
+    "description": "A .git/config file is publicly accessible, potentially exposing source code, history and remotes."
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/.git/config",
+      "matchers-condition": "and",
+      "matchers": [
+        { "type": "status", "status": [200] },
+        { "type": "word", "part": "body", "condition": "or", "words": ["[core]", "repositoryformatversion"] }
+      ]
+    }
+  ]
+}

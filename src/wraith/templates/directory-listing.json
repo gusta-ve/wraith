@@ -1,0 +1,19 @@
+{
+  "id": "directory-listing",
+  "info": {
+    "name": "Directory listing enabled",
+    "severity": "low",
+    "description": "The server returns an automatic directory index, which may expose unintended files."
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/",
+      "matchers-condition": "and",
+      "matchers": [
+        { "type": "status", "status": [200] },
+        { "type": "word", "part": "body", "condition": "or", "words": ["Index of /", "Directory listing for"] }
+      ]
+    }
+  ]
+}
