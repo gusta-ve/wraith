@@ -8,5 +8,7 @@ from . import (  # noqa: F401
     tech_detect,
     vhost,
     template_checks,
+    security_headers,
+    injection,
     access_control,
 )
