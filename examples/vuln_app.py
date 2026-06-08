@@ -14,10 +14,11 @@ Control (must NOT be flagged):
   * /                       — genuinely public
 """
 
+import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlsplit
 
-PORT = 8009
+PORT = int(os.environ.get("PORT", "8009"))
 
 # cookie token -> (display name, role)
 USERS = {

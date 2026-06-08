@@ -165,13 +165,14 @@ Built:
 - [x] `http-probe` — status / server / title
 - [x] `access-control` — authenticated crawl + multi-session replay to detect
       **Broken Access Control (OWASP A01)** and **IDOR**
+- [x] `content-discovery` — wordlist path/file discovery with soft-404 filtering
+- [x] `tech-detect` — fingerprint server / language / framework / CMS
 - [x] `shell` — post-exploitation handler: multi-listener, session management,
       automatic PTY upgrade and reverse-shell payload generation
 
 Next:
 
-- [ ] `content-discovery` — directory & vhost enumeration
-- [ ] `tech-detect` — fingerprint frameworks / CMS / versions
+- [ ] `vhost` — virtual-host enumeration
 - [ ] HTML reporting
 
 ## Legal
