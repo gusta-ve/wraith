@@ -105,6 +105,27 @@ It flags the broken `/admin` and the IDOR on `/account/orders/<id>`, while
 correctly staying silent on the role-checked `/admin-secure` and on personalized
 or public pages.
 
+## Post-exploitation
+
+Recon and exploitation are batch phases; landing and driving a shell is operator
+work, so it lives in its own interactive console:
+
+```bash
+wraith shell --listen 9001,9002      # bind one or more listeners
+```
+
+```
+wraith(shell)> payloads               # reverse-shell one-liners for your LHOST
+wraith(shell)> sessions               # list connected shells
+wraith(shell)> cmd 1 id               # run a single command on session 1
+wraith(shell)> upgrade 1              # turn a dumb shell into a full PTY
+wraith(shell)> interact 1             # attach (detach with Ctrl-])
+```
+
+It catches reverse shells on every listener, tracks each as a numbered session,
+generates payloads for `bash`, `python3`, `php`, `perl`, `nc` and `powershell`,
+and upgrades a raw shell to a full PTY (`python pty.spawn` + raw local terminal).
+
 ## How it works
 
 - **Phase** — one stage of the kill-chain. Declares a unique `name`, the phases
@@ -144,13 +165,13 @@ Built:
 - [x] `http-probe` — status / server / title
 - [x] `access-control` — authenticated crawl + multi-session replay to detect
       **Broken Access Control (OWASP A01)** and **IDOR**
+- [x] `shell` — post-exploitation handler: multi-listener, session management,
+      automatic PTY upgrade and reverse-shell payload generation
 
 Next:
 
 - [ ] `content-discovery` — directory & vhost enumeration
 - [ ] `tech-detect` — fingerprint frameworks / CMS / versions
-- [ ] **`shell`** — multi-listener handler with automatic TTY upgrade and
-      payload generation for post-exploitation
 - [ ] HTML reporting
 
 ## Legal
