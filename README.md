@@ -1,5 +1,9 @@
 # wraith
 
+[![CI](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml/badge.svg)](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 **Offensive security orchestration framework — it walks the kill-chain as a pipeline.**
 
 Most recon tools bolt a handful of scanners together. `wraith` models the whole
@@ -168,15 +172,16 @@ Built:
       **Broken Access Control (OWASP A01)** and **IDOR**
 - [x] `content-discovery` — wordlist path/file discovery with soft-404 filtering
 - [x] `tech-detect` — fingerprint server / language / framework / CMS
+- [x] `vhost` — virtual-host discovery via Host-header fuzzing
 - [x] `shell` — post-exploitation handler: multi-listener, session management,
       automatic PTY upgrade and reverse-shell payload generation
-
 - [x] Markdown + dark HTML reporting
+- [x] CI (GitHub Actions) running the test suite on Python 3.10–3.12
 
 Next:
 
-- [ ] `vhost` — virtual-host enumeration
-- [ ] CI workflow
+- [ ] template-based vulnerability checks
+- [ ] authenticated session-capture helper
 
 ## Development
 
