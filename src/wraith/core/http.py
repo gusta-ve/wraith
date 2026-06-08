@@ -31,18 +31,20 @@ class Response:
 
 
 async def fetch(url, cookies=None, headers=None, method="GET", timeout=8.0,
-                allow_redirects=True, max_bytes=200_000):
-    """Perform a request and return a Response, or None on transport error."""
+                allow_redirects=True, max_bytes=200_000, data=None):
+    """Perform a request and return a Response, or None on transport error.
+
+    ``data`` (a dict) sends a urlencoded form body."""
     try:
         import httpx
     except ImportError:
-        return await _fetch_stdlib(url, cookies, headers, method, timeout, allow_redirects, max_bytes)
+        return await _fetch_stdlib(url, cookies, headers, method, timeout, allow_redirects, max_bytes, data)
 
     try:
         async with httpx.AsyncClient(
             verify=False, timeout=timeout, follow_redirects=allow_redirects, cookies=cookies or {}
         ) as client:
-            r = await client.request(method, url, headers=headers or {})
+            r = await client.request(method, url, headers=headers or {}, data=data)
             return Response(
                 status=r.status_code,
                 url=str(r.url),
@@ -53,11 +55,17 @@ async def fetch(url, cookies=None, headers=None, method="GET", timeout=8.0,
         return None
 
 
-async def _fetch_stdlib(url, cookies, headers, method, timeout, allow_redirects, max_bytes):
+async def _fetch_stdlib(url, cookies, headers, method, timeout, allow_redirects, max_bytes, data=None):
+    from urllib.parse import urlencode
+
     hdrs = dict(headers or {})
     if cookies:
         hdrs["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
     hdrs.setdefault("User-Agent", "wraith/0.1")
+    body = None
+    if data is not None:
+        body = urlencode(data).encode()
+        hdrs.setdefault("Content-Type", "application/x-www-form-urlencoded")
 
     def _sync():
         ctx = ssl.create_default_context()
@@ -67,17 +75,17 @@ async def _fetch_stdlib(url, cookies, headers, method, timeout, allow_redirects,
         if not allow_redirects:
             handlers.append(_NoRedirect())
         opener = urllib.request.build_opener(*handlers)
-        req = urllib.request.Request(url, headers=hdrs, method=method)
+        req = urllib.request.Request(url, headers=hdrs, method=method, data=body)
         try:
             resp = opener.open(req, timeout=timeout)
         except urllib.error.HTTPError as exc:  # 4xx/5xx (and 3xx when redirects off) are responses too
             resp = exc
-        body = resp.read(max_bytes).decode("utf-8", "ignore")
+        text = resp.read(max_bytes).decode("utf-8", "ignore")
         status = getattr(resp, "status", None) or resp.getcode()
         return Response(
             status=status,
             url=resp.geturl(),
-            text=body,
+            text=text,
             headers={k.lower(): v for k, v in resp.headers.items()},
         )
 
