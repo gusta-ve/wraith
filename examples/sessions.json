@@ -1,0 +1,10 @@
+{
+  "base_url": "http://127.0.0.1:8009",
+  "seeds": ["/", "/account", "/admin", "/admin-secure"],
+  "sessions": [
+    { "name": "admin", "role": "high", "cookies": { "session": "admin-token" } },
+    { "name": "alice", "role": "low",  "cookies": { "session": "alice-token" } },
+    { "name": "bob",   "role": "low",  "cookies": { "session": "bob-token" } },
+    { "name": "anon",  "role": "none" }
+  ]
+}
