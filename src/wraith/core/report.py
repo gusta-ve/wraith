@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import json
 import time
 from pathlib import Path
 
@@ -52,6 +53,23 @@ def write_markdown(ws, results, path=None) -> Path:
     lines.append("")
 
     path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
+def write_json(ws, path=None) -> Path:
+    path = Path(path) if path else ws.workdir / "findings.json"
+    data = [
+        {
+            "title": f.title,
+            "severity": f.severity.label,
+            "phase": f.phase,
+            "target": f.target,
+            "evidence": f.evidence,
+            "description": f.description,
+        }
+        for f in sorted(ws.findings, key=lambda x: int(x.severity), reverse=True)
+    ]
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return path
 
 
