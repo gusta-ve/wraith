@@ -81,6 +81,24 @@ def cmd_run(args) -> None:
     c.info(f"report     {report_path}")
 
 
+def cmd_shell(args) -> None:
+    from wraith.shell import payloads
+    from wraith.shell.handler import ShellServer
+
+    c = Console()
+    c.banner()
+    try:
+        ports = [int(p) for p in args.listen.split(",")]
+    except ValueError:
+        raise SystemExit("--listen expects comma-separated port numbers")
+    lhost = args.lhost or payloads.guess_lhost()
+    server = ShellServer(ports, lhost, c)
+    try:
+        asyncio.run(server.run())
+    except KeyboardInterrupt:
+        pass
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="wraith", description="Offensive recon & exploitation pipeline.")
     sub = p.add_subparsers(dest="command", required=True)
@@ -95,6 +113,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     ph = sub.add_parser("phases", help="list available phases")
     ph.set_defaults(func=cmd_phases)
+
+    sh = sub.add_parser("shell", help="reverse-shell handler / post-exploitation console")
+    sh.add_argument("-l", "--listen", default="9001", help="comma-separated ports to listen on")
+    sh.add_argument("--lhost", help="local host embedded in generated payloads (auto-detected)")
+    sh.set_defaults(func=cmd_shell)
 
     return p
 
