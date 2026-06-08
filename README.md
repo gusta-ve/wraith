@@ -53,7 +53,8 @@ Each run writes a self-contained workspace:
 ```
 wraith-runs/example.com-<timestamp>/
 ├── workspace.json   # every host, service, endpoint and finding (resumable)
-└── report.md        # human-readable report
+├── report.md        # human-readable report
+└── report.html      # dark, self-contained HTML report
 ```
 
 ## Access control & IDOR
@@ -170,10 +171,23 @@ Built:
 - [x] `shell` — post-exploitation handler: multi-listener, session management,
       automatic PTY upgrade and reverse-shell payload generation
 
+- [x] Markdown + dark HTML reporting
+
 Next:
 
 - [ ] `vhost` — virtual-host enumeration
-- [ ] HTML reporting
+- [ ] CI workflow
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+The test suite covers the engine's DAG scheduling and failure handling, payload
+generation, technology fingerprinting, the IDOR id-mutation logic, workspace
+persistence and reporting.
 
 ## Legal
 
