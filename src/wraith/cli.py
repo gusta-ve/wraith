@@ -71,7 +71,8 @@ def cmd_run(args) -> None:
     engine = Engine(ws, phases, c, concurrency=args.concurrency)
     results = asyncio.run(engine.run())
 
-    report_path = report.write_markdown(ws, results)
+    report_md = report.write_markdown(ws, results)
+    report_html = report.write_html(ws, results)
     ws.save()
 
     c.rule("summary")
@@ -80,7 +81,8 @@ def cmd_run(args) -> None:
         f"endpoints {len(ws.endpoints)} · findings {len(ws.findings)}"
     )
     c.info(f"workspace  {ws.workdir / 'workspace.json'}")
-    c.info(f"report     {report_path}")
+    c.info(f"report     {report_md}")
+    c.info(f"report     {report_html}")
 
 
 def cmd_shell(args) -> None:
