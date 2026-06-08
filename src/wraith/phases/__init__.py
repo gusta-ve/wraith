@@ -6,5 +6,6 @@ from . import (  # noqa: F401
     http_probe,
     content_discovery,
     tech_detect,
+    vhost,
     access_control,
 )
