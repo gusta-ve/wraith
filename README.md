@@ -131,6 +131,36 @@ It catches reverse shells on every listener, tracks each as a numbered session,
 generates payloads for `bash`, `python3`, `php`, `perl`, `nc` and `powershell`,
 and upgrades a raw shell to a full PTY (`python pty.spawn` + raw local terminal).
 
+## Templates
+
+`template-checks` runs declarative templates (a nuclei-lite engine) against every
+discovered host. Built-ins ship under `wraith/templates/` (`.git`/`.env`
+exposure, `phpinfo`, directory listing, Apache `server-status`, Swagger UI); add
+your own with `--templates DIR`.
+
+A template is JSON (or YAML, if `pyyaml` is installed) — one or more requests,
+each with matchers combined via `matchers-condition`:
+
+```json
+{
+  "id": "dotenv-exposure",
+  "info": { "name": "Exposed .env file", "severity": "high" },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/.env",
+      "matchers-condition": "and",
+      "matchers": [
+        { "type": "status", "status": [200] },
+        { "type": "regex", "part": "body", "regex": ["DB_(HOST|PASSWORD)", "APP_KEY="] }
+      ]
+    }
+  ]
+}
+```
+
+Matcher types: `status`, `word`, `regex` and `header`.
+
 ## How it works
 
 - **Phase** — one stage of the kill-chain. Declares a unique `name`, the phases
@@ -173,6 +203,7 @@ Built:
 - [x] `content-discovery` — wordlist path/file discovery with soft-404 filtering
 - [x] `tech-detect` — fingerprint server / language / framework / CMS
 - [x] `vhost` — virtual-host discovery via Host-header fuzzing
+- [x] `template-checks` — declarative vulnerability templates (nuclei-lite)
 - [x] `shell` — post-exploitation handler: multi-listener, session management,
       automatic PTY upgrade and reverse-shell payload generation
 - [x] Markdown + dark HTML reporting
@@ -180,8 +211,8 @@ Built:
 
 Next:
 
-- [ ] template-based vulnerability checks
 - [ ] authenticated session-capture helper
+- [ ] request throttling / rate control
 
 ## Development
 
