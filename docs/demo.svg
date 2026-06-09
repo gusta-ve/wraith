@@ -1,42 +1,75 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="513" viewBox="0 0 760 513" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">
+<svg xmlns="http://www.w3.org/2000/svg" width="813" height="806" viewBox="0 0 813 806" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">
 <defs><linearGradient id="wm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5b5b"/><stop offset="1" stop-color="#8a0014"/></linearGradient></defs>
-<rect width="760" height="513" rx="10" fill="#0d1117" stroke="#21262d"/>
-<rect width="760" height="34" rx="10" fill="#161b22"/><rect y="24" width="760" height="10" fill="#161b22"/>
+<rect width="813" height="806" rx="10" fill="#0d1117" stroke="#21262d"/>
+<rect width="813" height="34" rx="10" fill="#161b22"/><rect y="24" width="813" height="10" fill="#161b22"/>
 <circle cx="20" cy="17" r="6" fill="#ff5f56"/>
 <circle cx="40" cy="17" r="6" fill="#ffbd2e"/>
 <circle cx="60" cy="17" r="6" fill="#27c93f"/>
-<text x="380.0" y="22" fill="#8b949e" text-anchor="middle" font-size="13">wraith — run</text>
-<text x="24" y="86" font-size="46" font-weight="800" letter-spacing="3" fill="url(#wm)">wraith</text>
-<text x="256" y="86" font-size="14" fill="#8b949e">v0.2.0</text>
-<text x="24" y="116" font-size="14" fill="#8b949e">offensive recon &amp; exploitation pipeline · gusta-ve</text>
-<text x="24" y="173" fill="#ff5050" font-weight="700" xml:space="preserve">$ </text>
-<text x="41" y="173" fill="#e6edf3" xml:space="preserve">wraith run target.htb --sessions sessions.json</text>
-<text x="24" y="219" fill="#ff5050" font-weight="700" xml:space="preserve">» </text>
-<text x="41" y="219" fill="#e6edf3" font-weight="700" xml:space="preserve">http-probe</text>
-<text x="127" y="219" fill="#8b949e" xml:space="preserve">  status, server, title</text>
-<text x="24" y="242" fill="#3fb950" xml:space="preserve">  [+] </text>
-<text x="76" y="242" fill="#e6edf3" xml:space="preserve">http://target.htb/ -&gt; 200  </text>
-<text x="308" y="242" fill="#8b949e" xml:space="preserve">[nginx]  Acme Corp</text>
-<text x="24" y="265" fill="#ff5050" font-weight="700" xml:space="preserve">» </text>
-<text x="41" y="265" fill="#e6edf3" font-weight="700" xml:space="preserve">injection</text>
-<text x="119" y="265" fill="#8b949e" xml:space="preserve">  reflected XSS · SQLi · open redirect</text>
-<text x="24" y="288" fill="#ff6e5f" font-weight="700" xml:space="preserve">  [HIGH] </text>
-<text x="101" y="288" fill="#e6edf3" xml:space="preserve">Reflected XSS  GET /search [q]</text>
-<text x="24" y="311" fill="#ff6e5f" font-weight="700" xml:space="preserve">  [HIGH] </text>
-<text x="101" y="311" fill="#e6edf3" xml:space="preserve">SQL Injection (error-based)  GET /item [id]</text>
-<text x="24" y="334" fill="#e1a52d" font-weight="700" xml:space="preserve">  [MED ] </text>
-<text x="101" y="334" fill="#e6edf3" xml:space="preserve">Open Redirect  GET /go [url]</text>
-<text x="24" y="357" fill="#ff5050" font-weight="700" xml:space="preserve">» </text>
-<text x="41" y="357" fill="#e6edf3" font-weight="700" xml:space="preserve">access-control</text>
-<text x="162" y="357" fill="#8b949e" xml:space="preserve">  BAC · IDOR via session replay</text>
-<text x="24" y="380" fill="#ff6e5f" font-weight="700" xml:space="preserve">  [HIGH] </text>
-<text x="101" y="380" fill="#e6edf3" xml:space="preserve">IDOR  &#x27;bob&#x27; -&gt; /account/orders/3</text>
-<text x="24" y="426" fill="#8b949e">summary</text>
-<line x1="100" y1="421" x2="736" y2="421" stroke="#21262d"/>
-<text x="24" y="449" fill="#3fb950" xml:space="preserve">  [+] </text>
-<text x="76" y="449" fill="#e6edf3" xml:space="preserve">hosts 1 · services 3 · endpoints 21 · findings 9</text>
-<text x="24" y="472" fill="#8b949e" xml:space="preserve">  findings  </text>
-<text x="127" y="472" fill="#ff6e5f" font-weight="700" xml:space="preserve">High 4  </text>
-<text x="196" y="472" fill="#e1a52d" font-weight="700" xml:space="preserve">Medium 2  </text>
-<text x="282" y="472" fill="#5aa0ff" font-weight="700" xml:space="preserve">Low 3</text>
+<text x="406.5" y="22" fill="#8b949e" text-anchor="middle" font-size="13">wraith — run</text>
+<text x="24" y="84" font-size="44" font-weight="800" letter-spacing="3" fill="url(#wm)">wraith</text>
+<text x="246" y="84" font-size="14" fill="#8b949e">v0.2.0</text>
+<text x="24" y="112" font-size="14" fill="#8b949e">offensive recon &amp; exploitation pipeline</text>
+<text x="24" y="132" font-size="13" fill="#8b949e">gusta-ve · github.com/gusta-ve/wraith</text>
+<text x="24" y="150" fill="#56b6c2" xml:space="preserve">  [*] </text>
+<text x="76" y="150" fill="#e6edf3" xml:space="preserve">target   127.0.0.1</text>
+<text x="24" y="194" fill="#ff5555" xml:space="preserve">» </text>
+<text x="41" y="194" fill="#e6edf3" font-weight="700" xml:space="preserve">resolve</text>
+<text x="101" y="194" fill="#8b949e" xml:space="preserve">  Resolve the target to one or more IP addresses (DNS).</text>
+<text x="24" y="216" fill="#3fb950" xml:space="preserve">  [+] </text>
+<text x="76" y="216" fill="#e6edf3" xml:space="preserve">target is an IP: 127.0.0.1</text>
+<text x="24" y="260" fill="#ff5555" xml:space="preserve">» </text>
+<text x="41" y="260" fill="#e6edf3" font-weight="700" xml:space="preserve">tcp-scan</text>
+<text x="110" y="260" fill="#8b949e" xml:space="preserve">  Async TCP connect scan of common ports.</text>
+<text x="24" y="282" fill="#3fb950" xml:space="preserve">  [+] </text>
+<text x="76" y="282" fill="#e6edf3" xml:space="preserve">127.0.0.1:8080 open  http</text>
+<text x="24" y="326" fill="#ff5555" xml:space="preserve">» </text>
+<text x="41" y="326" fill="#e6edf3" font-weight="700" xml:space="preserve">http-probe</text>
+<text x="127" y="326" fill="#8b949e" xml:space="preserve">  Probe HTTP(S) services for status, server and title.</text>
+<text x="24" y="348" fill="#3fb950" xml:space="preserve">  [+] </text>
+<text x="76" y="348" fill="#e6edf3" xml:space="preserve">http://127.0.0.1:8080/ -&gt; 200  [BaseHTTP/0.6 Python/3.12.3]  shop</text>
+<text x="24" y="392" fill="#ff5555" xml:space="preserve">» </text>
+<text x="41" y="392" fill="#e6edf3" font-weight="700" xml:space="preserve">security-headers</text>
+<text x="179" y="392" fill="#8b949e" xml:space="preserve">  Audit security headers, cookie flags and CORS per host.</text>
+<text x="24" y="414" fill="#d6a02d" xml:space="preserve">  [!] </text>
+<text x="76" y="414" fill="#e6edf3" xml:space="preserve">missing header  Content-Security-Policy  (http://127.0.0.1:8080)</text>
+<text x="24" y="436" fill="#d6a02d" xml:space="preserve">  [!] </text>
+<text x="76" y="436" fill="#e6edf3" xml:space="preserve">missing header  X-Frame-Options  (http://127.0.0.1:8080)</text>
+<text x="24" y="458" fill="#d6a02d" xml:space="preserve">  [!] </text>
+<text x="76" y="458" fill="#e6edf3" xml:space="preserve">missing header  X-Content-Type-Options  (http://127.0.0.1:8080)</text>
+<text x="24" y="502" fill="#ff5555" xml:space="preserve">» </text>
+<text x="41" y="502" fill="#e6edf3" font-weight="700" xml:space="preserve">injection</text>
+<text x="119" y="502" fill="#8b949e" xml:space="preserve">  Reflected XSS, error-based SQLi and open redirect on parameters.</text>
+<text x="24" y="524" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="41" y="524" fill="#ff6e5f" font-weight="700" xml:space="preserve">[HIGH]</text>
+<text x="93" y="524" fill="#e6edf3" xml:space="preserve"> Reflected XSS  GET http://127.0.0.1:8080/search [q]</text>
+<text x="24" y="546" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="41" y="546" fill="#ff6e5f" font-weight="700" xml:space="preserve">[HIGH]</text>
+<text x="93" y="546" fill="#e6edf3" xml:space="preserve"> SQL Injection (error-based)  GET http://127.0.0.1:8080/product [id]</text>
+<text x="24" y="568" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="41" y="568" fill="#e1a52d" font-weight="700" xml:space="preserve">[MED ]</text>
+<text x="93" y="568" fill="#e6edf3" xml:space="preserve"> Open Redirect  GET http://127.0.0.1:8080/go [url]</text>
+<text x="24" y="612" fill="#ff5555" xml:space="preserve">» </text>
+<text x="41" y="612" fill="#e6edf3" font-weight="700" xml:space="preserve">access-control</text>
+<text x="162" y="612" fill="#8b949e" xml:space="preserve">  Broken Access Control (Autorize-style) &amp; IDOR via multi-session replay.</text>
+<text x="24" y="634" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="41" y="634" fill="#ff6e5f" font-weight="700" xml:space="preserve">[HIGH]</text>
+<text x="93" y="634" fill="#e6edf3" xml:space="preserve"> BAC  &#x27;alice&#x27; -&gt; /admin</text>
+<text x="24" y="656" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="41" y="656" fill="#ff6e5f" font-weight="700" xml:space="preserve">[HIGH]</text>
+<text x="93" y="656" fill="#e6edf3" xml:space="preserve"> BAC  &#x27;bob&#x27; -&gt; /admin</text>
+<text x="24" y="678" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="41" y="678" fill="#ff6e5f" font-weight="700" xml:space="preserve">[HIGH]</text>
+<text x="93" y="678" fill="#e6edf3" xml:space="preserve"> BAC  &#x27;alice&#x27; -&gt; /account/orders/3</text>
+<text x="24" y="722" fill="#8b949e" xml:space="preserve">-- summary ---------------------------------------------</text>
+<text x="24" y="744" fill="#3fb950" xml:space="preserve">  [+] </text>
+<text x="76" y="744" fill="#e6edf3" xml:space="preserve">hosts 1 · services 1 · endpoints 9 · findings 16</text>
+<text x="24" y="766" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="41" y="766" fill="#8b949e" xml:space="preserve">findings  </text>
+<text x="127" y="766" fill="#ff6e5f" font-weight="700" xml:space="preserve">High 9</text>
+<text x="179" y="766" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="196" y="766" fill="#e1a52d" font-weight="700" xml:space="preserve">Medium 2</text>
+<text x="265" y="766" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="282" y="766" fill="#5aa0ff" font-weight="700" xml:space="preserve">Low 3</text>
+<text x="325" y="766" fill="#e6edf3" xml:space="preserve">  </text>
+<text x="342" y="766" fill="#969696" font-weight="700" xml:space="preserve">Info 2</text>
 </svg>
