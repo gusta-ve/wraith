@@ -3,9 +3,12 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.2.0]
 
 ### Added
+- ASCII banner with truecolor gradient and selectable themes
+  (`--theme crimson|matrix|ice|amber|mono`), severity-coloured findings and an
+  end-of-run severity summary. `--no-color` / `--no-banner` / `WRAITH_THEME`.
 - `security-headers` phase — audits security headers, cookie flags and CORS.
 - `injection` phase — reflected XSS, error-based SQLi and open redirect on
   discovered query/form parameters.

@@ -1,10 +1,22 @@
 # wraith
 
+```text
+██╗    ██╗██████╗  █████╗ ██╗████████╗██╗  ██╗
+██║    ██║██╔══██╗██╔══██╗██║╚══██╔══╝██║  ██║
+██║ █╗ ██║██████╔╝███████║██║   ██║   ███████║
+██║███╗██║██╔══██╗██╔══██║██║   ██║   ██╔══██║
+╚███╔███╔╝██║  ██║██║  ██║██║   ██║   ██║  ██║
+ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝   ╚═╝   ╚═╝  ╚═╝
+```
+
 [![CI](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml/badge.svg)](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Offensive security orchestration framework — it walks the kill-chain as a pipeline.**
+
+> *A wraith is a ghost that stalks unseen and slips past defences — which is the
+> job: enumerate quietly, walk the kill-chain, surface what shouldn't be reachable.*
 
 Most recon tools bolt a handful of scanners together. `wraith` models the whole
 engagement as a **directed graph of phases**: recon feeds scanning, scanning
@@ -30,18 +42,33 @@ dependencies required.
 
 ## Install
 
+**Kali / Debian (recommended — pipx gives you a global `wraith`):**
+
 ```bash
-git clone https://github.com/gusta-ve/wraith
-cd wraith
-pip install -e .            # core, zero third-party deps
-pip install -e ".[http]"    # optional: httpx for faster HTTP probing
+sudo apt install -y pipx && pipx ensurepath
+pipx install "git+https://github.com/gusta-ve/wraith"
+# faster HTTP probing (optional):
+pipx install "wraith[http] @ git+https://github.com/gusta-ve/wraith"
+wraith --version
 ```
 
-Or run straight from source without installing:
+**From a clone, in a venv:**
+
+```bash
+git clone https://github.com/gusta-ve/wraith && cd wraith
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[http]"
+wraith run example.com
+```
+
+**No install at all (straight from source):**
 
 ```bash
 PYTHONPATH=src python3 -m wraith run example.com
 ```
+
+> On Kali, system pip is "externally managed" (PEP 668) — use `pipx` or a venv as
+> above rather than `pip install` into the system Python.
 
 ## Usage
 
@@ -50,7 +77,11 @@ wraith run example.com                 # full pipeline
 wraith run 10.10.10.5 --phases resolve,tcp-scan
 wraith run example.com --concurrency 16
 wraith phases                          # list available phases
+wraith --theme matrix run example.com  # crimson (default) | matrix | ice | amber | mono
 ```
+
+Themes and the banner are cosmetic: `--no-banner` and `--no-color` (or the
+`NO_COLOR` env var) strip them for logs/CI; set a default with `WRAITH_THEME`.
 
 Each run writes a self-contained workspace:
 
