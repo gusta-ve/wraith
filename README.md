@@ -1,6 +1,8 @@
 # wraith
 
-![wraith](docs/demo.svg)
+<p align="center">
+  <img src="docs/hero.svg" alt="wraith — offensive recon & exploitation pipeline" width="900">
+</p>
 
 An offensive security scanner that runs the recon-to-exploitation workflow as a
 pipeline of small composable phases. Point it at a target; it resolves hosts,
@@ -48,6 +50,7 @@ wraith run target.com                          # full pipeline
 wraith run 10.10.10.5 --phases resolve,tcp-scan,http-probe
 wraith run target.com --sessions sessions.json # adds access-control / IDOR
 wraith run target.com --fail-on high           # exit code 2 on a High+ finding
+wraith run target.com --showdown               # reveal the hand it was holding at the end
 wraith --theme matrix run target.com           # crimson (default) | matrix | ice | amber | mono
 wraith phases                                  # list phases and their dependencies
 ```
@@ -62,17 +65,9 @@ wraith-runs/target.com-<ts>/
   findings.json
 ```
 
-```
-▸ injection  Reflected XSS, error-based SQLi and open redirect on parameters.
-  [*] http://target.com: testing 14 parameter(s)
-  [HIGH] Reflected XSS  GET http://target.com/search [q]
-  [HIGH] SQL Injection (error-based)  GET http://target.com/item [id]
-  [MED ] Open Redirect  GET http://target.com/go [url]
+A real run against the bundled lab:
 
-── summary ─────────────────────────────────────────────
-  [+] hosts 1 · services 3 · endpoints 21 · findings 9
-  findings  High 3  Medium 2  Low 3  Info 1
-```
+![a wraith run](docs/demo.svg)
 
 `--no-banner` and `--no-color` (or `NO_COLOR`) strip the cosmetics for logs and
 CI; `WRAITH_THEME` sets a default theme.
@@ -178,4 +173,4 @@ MIT.
 
 ---
 
-*A wraith slips past every ward unseen, and is gone before the alarm.*
+*You never saw it coming — the wraith was already holding aces.*

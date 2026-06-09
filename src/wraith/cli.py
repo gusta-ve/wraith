@@ -106,6 +106,9 @@ def cmd_run(args) -> None:
     c.info(f"report     {report_html}")
     c.info(f"findings   {report_json}")
 
+    if args.showdown:
+        c.showdown(len(ws.findings))
+
     if args.fail_on:
         threshold = _SEVERITY_BY_NAME[args.fail_on]
         worst = max((f.severity for f in ws.findings), default=Severity.INFO)
@@ -161,6 +164,10 @@ def cmd_login(args) -> None:
         print(text)
 
 
+def cmd_aces(args) -> None:
+    _console(args).aces()
+
+
 def cmd_shell(args) -> None:
     from wraith.shell import payloads
     from wraith.shell.handler import ShellServer
@@ -185,7 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--theme", choices=list(THEMES), help="colour theme (default: crimson)")
     p.add_argument("--no-color", action="store_true", help="disable coloured output")
     p.add_argument("--no-banner", action="store_true", help="suppress the ASCII banner")
-    sub = p.add_subparsers(dest="command", required=True)
+    sub = p.add_subparsers(dest="command", required=True, metavar="<command>")
 
     run = sub.add_parser("run", help="run the pipeline against a target")
     run.add_argument("target", help="hostname or IP")
@@ -196,6 +203,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--templates", help="extra directory of template-checks templates")
     run.add_argument("--fail-on", choices=list(_SEVERITY_BY_NAME),
                      help="exit 2 if a finding at/above this severity is found")
+    run.add_argument("--showdown", action="store_true",
+                     help="reveal the wraith and the hand it was holding (your findings) at the end")
     run.add_argument("--workdir", default="wraith-runs", help="base directory for run output")
     run.set_defaults(func=cmd_run)
 
@@ -218,6 +227,9 @@ def build_parser() -> argparse.ArgumentParser:
     lg.add_argument("--role", default="low", help="session role (none/low/med/high)")
     lg.add_argument("-o", "--output", help="write the sessions.json to this path")
     lg.set_defaults(func=cmd_login)
+
+    egg = sub.add_parser("aces")  # easter egg: no help= keeps it out of the listing
+    egg.set_defaults(func=cmd_aces)
 
     return p
 

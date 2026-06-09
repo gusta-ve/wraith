@@ -12,8 +12,12 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 from wraith import __version__
+
+_ART_DIR = Path(__file__).resolve().parent.parent / "art"
+_RAMP = " .:-=+*#%@"
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -86,20 +90,69 @@ class Console:
     def banner(self) -> None:
         if not self.show_banner:
             return
-        self._emit()
         c0, c1 = self.theme["grad"]
+        self._emit()
         for i, line in enumerate(WORDMARK):
-            if self.color:
-                shade = _lerp(c0, c1, i / (len(WORDMARK) - 1))
-                self._emit("  " + BOLD + _fg(shade) + line + RESET)
-            else:
-                self._emit("  " + line)
+            shade = _lerp(c0, c1, i / (len(WORDMARK) - 1))
+            self._emit("  " + ((BOLD + _fg(shade) + line + RESET) if self.color else line))
         self._emit()
         self._emit("  " + self._accent("» ")
                    + self._c(DIM, "offensive recon & exploitation pipeline")
                    + "   " + self._c(DIM, f"v{__version__}"))
         self._emit("  " + self._c(DIM, "gusta-ve · github.com/gusta-ve/wraith · authorized use only"))
         self._emit()
+
+    def _reaper(self) -> None:
+        """Render the hooded-wraith line-art with a pale-blue -> bright-white glow."""
+        try:
+            art = (_ART_DIR / "wraith.txt").read_text(encoding="utf-8").rstrip("\n").split("\n")
+        except OSError:
+            return
+        lo, hi = (150, 175, 215), (240, 245, 255)  # pale blue -> bright white
+        for line in art:
+            if not self.color:
+                self._emit("  " + line)
+                continue
+            out, run, idx = "  ", "", -1
+            for ch in line:
+                i = _RAMP.find(ch)
+                if i < 0:
+                    i = 0
+                if i != idx:
+                    out += self._tint(run, idx, lo, hi)
+                    run, idx = "", i
+                run += ch
+            out += self._tint(run, idx, lo, hi)
+            self._emit(out)
+
+    def _reveal(self, hand: str) -> None:
+        """The wraith's line-art + the showdown phrase, with whatever it was holding."""
+        self._emit()
+        self._reaper()
+        self._emit()
+        self._emit("                 the wraith reveals its hand —  " + hand)
+        self._emit()
+        self._emit("        " + self._c(DIM, "you never saw it coming — the wraith was already holding aces."))
+        self._emit()
+
+    def aces(self) -> None:
+        """Showdown with the pocket aces (easter egg: `wraith aces`)."""
+        white, red = _fg((235, 235, 235)), _fg((255, 80, 80))
+        self._reveal(self._c(BOLD + white, "A♣") + "  " + self._c(BOLD + red, "A♥"))
+
+    def showdown(self, findings: int) -> None:
+        """End-of-run reveal: the hand the wraith was holding all along — your findings."""
+        plural = "" if findings == 1 else "s"
+        self._reveal(self._c(BOLD + _fg((255, 80, 80)), f"{findings} finding{plural}"))
+
+    @staticmethod
+    def _tint(run, idx, lo, hi) -> str:
+        if not run:
+            return ""
+        if idx <= 0:
+            return run
+        bold = BOLD if idx >= 6 else ""
+        return bold + _fg(_lerp(lo, hi, (idx - 1) / 8)) + run + RESET
 
     def rule(self, title: str = "") -> None:
         if title:
