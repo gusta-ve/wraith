@@ -139,7 +139,7 @@ class TemplateChecksPhase(Phase):
                 info = tpl.get("info", {})
                 sev = _SEV.get(str(info.get("severity", "info")).lower(), Severity.INFO)
                 name = info.get("name", tpl.get("id", "template"))
-                console.bad(f"{sev.label.upper():8} {name}  → {url}")
+                console.finding(sev.label, f"{name}  → {url}")
                 ws.add_finding(
                     title=name,
                     severity=sev,

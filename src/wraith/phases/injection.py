@@ -108,7 +108,7 @@ class InjectionPhase(Phase):
 
     def _report(self, ws, console, title, sev, pt, payload, desc) -> None:
         where = f"{pt.method} {pt.action} [{pt.param}]"
-        console.bad(f"{sev.label.upper():5} {title}  {where}")
+        console.finding(sev.label, f"{title}  {where}")
         ws.add_finding(title=f"{title} in '{pt.param}'", severity=sev, phase=self.name,
                        target=pt.action, evidence=f"{where} payload={payload!r}", description=desc)
 

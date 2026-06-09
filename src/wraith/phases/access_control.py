@@ -104,7 +104,7 @@ class AccessControlPhase(Phase):
                 continue
             for s in bypassers:
                 sev = Severity.HIGH if rank(s) < rank(priv) else Severity.MEDIUM
-                console.bad(f"BAC   '{s.name}' → {urlsplit(url).path}")
+                console.finding(sev.label, f"BAC  '{s.name}' → {urlsplit(url).path}")
                 ws.add_finding(
                     title=f"Broken Access Control at {urlsplit(url).path}",
                     severity=sev,
@@ -144,7 +144,7 @@ class AccessControlPhase(Phase):
                     if self._similar(pr.text, r.text) >= 0.98:
                         continue                         # identical to our own object
                     flagged.add((name, path))
-                    console.bad(f"IDOR  '{name}' → {urlsplit(probe_url).path}")
+                    console.finding("High", f"IDOR  '{name}' → {urlsplit(probe_url).path}")
                     ws.add_finding(
                         title=f"IDOR at {path}",
                         severity=Severity.HIGH,

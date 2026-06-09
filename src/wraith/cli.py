@@ -12,13 +12,21 @@ from urllib.parse import urlsplit
 import wraith.phases  # noqa: F401  (importing populates PHASE_REGISTRY)
 from wraith import __version__
 from wraith.core import report
-from wraith.core.console import Console
+from wraith.core.console import THEMES, Console
 from wraith.core.context import Workspace
 from wraith.core.engine import Engine
 from wraith.core.models import Severity
 from wraith.core.phase import PHASE_REGISTRY
 
 _SEVERITY_BY_NAME = {s.label.lower(): s for s in Severity}
+
+
+def _console(args) -> Console:
+    return Console(
+        theme=getattr(args, "theme", None),
+        color=False if getattr(args, "no_color", False) else None,
+        banner=not getattr(args, "no_banner", False),
+    )
 
 
 def _select(names):
@@ -34,7 +42,7 @@ def _select(names):
 
 
 def cmd_phases(args) -> None:
-    c = Console()
+    c = _console(args)
     c.banner()
     for name, cls in PHASE_REGISTRY.items():
         deps = ", ".join(sorted(cls.requires)) or "—"
@@ -61,7 +69,7 @@ def _load_sessions(ws, path, console) -> None:
 
 
 def cmd_run(args) -> None:
-    c = Console()
+    c = _console(args)
     c.banner()
 
     phases = _select(args.phases.split(",") if args.phases else None)
@@ -89,6 +97,10 @@ def cmd_run(args) -> None:
         f"hosts {len(ws.hosts)} · services {len(ws.services)} · "
         f"endpoints {len(ws.endpoints)} · findings {len(ws.findings)}"
     )
+    counts = {}
+    for f in ws.findings:
+        counts[f.severity.label] = counts.get(f.severity.label, 0) + 1
+    c.severity_summary(counts)
     c.info(f"workspace  {ws.workdir / 'workspace.json'}")
     c.info(f"report     {report_md}")
     c.info(f"report     {report_html}")
@@ -108,7 +120,7 @@ def cmd_login(args) -> None:
     import ssl
     import urllib.request
 
-    c = Console()
+    c = _console(args)
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
@@ -153,7 +165,7 @@ def cmd_shell(args) -> None:
     from wraith.shell import payloads
     from wraith.shell.handler import ShellServer
 
-    c = Console()
+    c = _console(args)
     c.banner()
     try:
         ports = [int(p) for p in args.listen.split(",")]
@@ -170,6 +182,9 @@ def cmd_shell(args) -> None:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="wraith", description="Offensive recon & exploitation pipeline.")
     p.add_argument("--version", action="version", version=f"wraith {__version__}")
+    p.add_argument("--theme", choices=list(THEMES), help="colour theme (default: crimson)")
+    p.add_argument("--no-color", action="store_true", help="disable coloured output")
+    p.add_argument("--no-banner", action="store_true", help="suppress the ASCII banner")
     sub = p.add_subparsers(dest="command", required=True)
 
     run = sub.add_parser("run", help="run the pipeline against a target")
