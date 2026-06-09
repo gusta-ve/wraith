@@ -175,11 +175,16 @@ wraith run 127.0.0.1 --sessions examples/sessions.json
 pip install -e ".[dev]" && pytest
 ```
 
-## Legal
+## Disclaimer
 
-For authorized testing only — systems you own or have written permission to
-assess. What you do with it is on you.
+Built for security research and testing — point it where you're meant to. What
+anyone does with it from there is theirs alone; the author takes no
+responsibility for misuse or for any damage caused.
 
 ## License
 
 MIT.
+
+---
+
+*Lock every door you own. A wraith was never going to use one.*
