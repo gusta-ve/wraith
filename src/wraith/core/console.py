@@ -123,9 +123,12 @@ class Console:
         print(msg)
 
     # ----- findings -----
+    _ABBR = {"Critical": "CRIT", "High": "HIGH", "Medium": "MED", "Low": "LOW", "Info": "INFO"}
+
     def finding(self, severity_label: str, msg) -> None:
         rgb = SEVERITY_RGB.get(severity_label, (150, 150, 150))
-        tag = f"[{severity_label.upper()[:4]:<4}]"
+        abbr = self._ABBR.get(severity_label, severity_label.upper()[:4])
+        tag = f"[{abbr:<4}]"
         print("  " + self._c(_fg(rgb) + BOLD, tag) + " " + str(msg))
 
     def severity_summary(self, counts: dict) -> None:
