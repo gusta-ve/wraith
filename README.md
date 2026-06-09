@@ -9,190 +9,156 @@
  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝   ╚═╝   ╚═╝  ╚═╝
 ```
 
+An offensive security scanner that runs the recon-to-exploitation workflow as a
+pipeline of small composable phases. Point it at a target; it resolves hosts,
+scans ports, maps the web surface, tests it and reports what it finds. The core
+has no third-party dependencies.
+
 [![CI](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml/badge.svg)](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+![MIT](https://img.shields.io/badge/license-MIT-green)
 
-**Offensive security orchestration framework — it walks the kill-chain as a pipeline.**
+A wraith is something that moves unseen and gets past the wards — which is the
+job: enumerate quietly, follow the chain, and reach what shouldn't be reachable.
 
-> *A wraith is a ghost that stalks unseen and slips past defences — which is the
-> job: enumerate quietly, walk the kill-chain, surface what shouldn't be reachable.*
-
-Most recon tools bolt a handful of scanners together. `wraith` models the whole
-engagement as a **directed graph of phases**: recon feeds scanning, scanning
-feeds web analysis, web analysis feeds exploitation. Independent phases run
-**concurrently**, every phase shares a single persisted **workspace**, and
-adding a new attack capability is just dropping in one file.
-
-The core pipeline runs on the **Python standard library alone** — no
-dependencies required.
-
-```
-                    ┌──────────────────────────────────────────────┐
-   target ───►      │   ENGINE  (phase DAG · async workers · ws)     │
-                    └──────────────────────────────────────────────┘
-                       │        │         │          │          │
-                       ▼        ▼         ▼          ▼          ▼
-                  ┌────────┐ ┌──────┐ ┌────────┐ ┌────────┐ ┌─────────┐
-   kill-chain →   │ recon  │→│ scan │→│  web   │→│ access │→│ post-ex │
-                  │resolve │ │ports │ │ probe  │ │ control│ │  shell  │
-                  └────────┘ └──────┘ └────────┘ └────────┘ └─────────┘
-                       └──────────────► WORKSPACE ──► report (md/json)
-```
+- [Install](#install)
+- [Usage](#usage)
+- [Phases](#phases)
+- [Web testing](#web-testing)
+- [Post-exploitation](#post-exploitation)
+- [Extending](#extending)
+- [Lab](#lab)
 
 ## Install
 
-**Kali / Debian (recommended — pipx gives you a global `wraith`):**
+pipx gives you a global `wraith` (the right call on Kali, which blocks system
+pip via PEP 668):
 
 ```bash
 sudo apt install -y pipx && pipx ensurepath
 pipx install "git+https://github.com/gusta-ve/wraith"
-# faster HTTP probing (optional):
-pipx install "wraith[http] @ git+https://github.com/gusta-ve/wraith"
-wraith --version
+pipx install "wraith[http] @ git+https://github.com/gusta-ve/wraith"   # + httpx, faster probing
 ```
 
-**From a clone, in a venv:**
+From a clone:
 
 ```bash
 git clone https://github.com/gusta-ve/wraith && cd wraith
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[http]"
-wraith run example.com
 ```
 
-**No install at all (straight from source):**
-
-```bash
-PYTHONPATH=src python3 -m wraith run example.com
-```
-
-> On Kali, system pip is "externally managed" (PEP 668) — use `pipx` or a venv as
-> above rather than `pip install` into the system Python.
+Or without installing anything: `PYTHONPATH=src python3 -m wraith run target`.
 
 ## Usage
 
 ```bash
-wraith run example.com                 # full pipeline
-wraith run 10.10.10.5 --phases resolve,tcp-scan
-wraith run example.com --concurrency 16
-wraith phases                          # list available phases
-wraith --theme matrix run example.com  # crimson (default) | matrix | ice | amber | mono
+wraith run target.com                          # full pipeline
+wraith run 10.10.10.5 --phases resolve,tcp-scan,http-probe
+wraith run target.com --sessions sessions.json # adds access-control / IDOR
+wraith run target.com --fail-on high           # exit code 2 on a High+ finding
+wraith --theme matrix run target.com           # crimson (default) | matrix | ice | amber | mono
+wraith phases                                  # list phases and their dependencies
 ```
 
-Themes and the banner are cosmetic: `--no-banner` and `--no-color` (or the
-`NO_COLOR` env var) strip them for logs/CI; set a default with `WRAITH_THEME`.
-
-Each run writes a self-contained workspace:
+A run writes a self-contained directory:
 
 ```
-wraith-runs/example.com-<timestamp>/
-├── workspace.json   # every host, service, endpoint and finding (resumable)
-├── report.md        # human-readable report
-├── report.html      # dark, self-contained HTML report
-└── findings.json    # machine-readable findings
-```
-
-Gate a pipeline on severity:
-
-```bash
-wraith run example.com --fail-on high   # exit code 2 if a High+ finding is seen
-```
-
-## Access control & IDOR
-
-The `access-control` phase finds the most common web vulnerability class (OWASP
-A01) the way a pentester does — by comparing what different users can reach:
-
-1. Crawl the app as the highest-privilege session.
-2. Replay every discovered request under the lower-privilege (and anonymous)
-   sessions.
-3. Flag any request where a lower principal gets content **identical** to the
-   privileged one (vertical bypass), suppressing anything an anonymous user can
-   also reach (genuinely public).
-4. For URLs carrying a numeric id, mutate it (±1) to detect **IDOR** —
-   distinguishing a real neighbouring object from the not-found page.
-
-Sessions are described in a small JSON file:
-
-```jsonc
-{
-  "base_url": "http://target",
-  "seeds": ["/", "/account", "/admin"],
-  "sessions": [
-    { "name": "admin", "role": "high", "cookies": { "session": "..." } },
-    { "name": "user",  "role": "low",  "cookies": { "session": "..." } },
-    { "name": "anon",  "role": "none" }
-  ]
-}
-```
-
-A self-contained demo (deliberately vulnerable app) ships in `examples/`:
-
-```bash
-python3 examples/vuln_app.py &
-wraith run 127.0.0.1 --phases access-control --sessions examples/sessions.json
+wraith-runs/target.com-<ts>/
+  workspace.json   every host, service, endpoint and finding (resumable)
+  report.md
+  report.html      dark, self-contained
+  findings.json
 ```
 
 ```
-▸ access-control
-  [*] privileged session: 'admin' (role high)
-  [+] discovered 5 URL(s) as 'admin'
-  [-] BAC   'alice' → /admin
-  [-] BAC   'bob'   → /admin
-  [-] IDOR  'alice' → /account/orders/2
-  [-] IDOR  'bob'   → /account/orders/3
+▸ injection  Reflected XSS, error-based SQLi and open redirect on parameters.
+  [*] http://target.com: testing 14 parameter(s)
+  [HIGH] Reflected XSS  GET http://target.com/search [q]
+  [HIGH] SQL Injection (error-based)  GET http://target.com/item [id]
+  [MED ] Open Redirect  GET http://target.com/go [url]
+
+── summary ─────────────────────────────────────────────
+  [+] hosts 1 · services 3 · endpoints 21 · findings 9
+  findings  High 3  Medium 2  Low 3  Info 1
 ```
 
-It flags the broken `/admin` and the IDOR on `/account/orders/<id>`, while
-correctly staying silent on the role-checked `/admin-secure` and on personalized
-or public pages.
+`--no-banner` and `--no-color` (or `NO_COLOR`) strip the cosmetics for logs and
+CI; `WRAITH_THEME` sets a default theme.
 
-## Post-exploitation
+## Phases
 
-Recon and exploitation are batch phases; landing and driving a shell is operator
-work, so it lives in its own interactive console:
-
-```bash
-wraith shell --listen 9001,9002      # bind one or more listeners
-```
+Each phase declares the phases it depends on. The engine resolves that graph and
+runs independent phases concurrently; a failing phase is isolated and its
+dependents are skipped. Everything is shared through one persisted workspace.
 
 ```
-wraith(shell)> payloads               # reverse-shell one-liners for your LHOST
-wraith(shell)> sessions               # list connected shells
-wraith(shell)> cmd 1 id               # run a single command on session 1
-wraith(shell)> upgrade 1              # turn a dumb shell into a full PTY
-wraith(shell)> interact 1             # attach (detach with Ctrl-])
+resolve            DNS resolution
+tcp-scan           async TCP connect scan of common ports
+http-probe         status, Server header and title
+content-discovery  path/file wordlist with soft-404 filtering
+tech-detect        server / language / framework / CMS fingerprint
+vhost              virtual-host discovery via Host-header fuzzing
+template-checks    declarative JSON/YAML checks (nuclei-style)
+security-headers   security headers, cookie flags and CORS
+injection          reflected XSS, error-based SQLi, open redirect
+access-control     Broken Access Control and IDOR (needs sessions)
 ```
 
-It catches reverse shells on every listener, tracks each as a numbered session,
-generates payloads for `bash`, `python3`, `php`, `perl`, `nc` and `powershell`,
-and upgrades a raw shell to a full PTY (`python pty.spawn` + raw local terminal).
+## Web testing
 
-## Web vulnerabilities
+`injection` crawls the target, pulls parameters from query strings and forms,
+and tests each: reflected XSS needs a raw `<`/`>`/`"` payload to come back
+unencoded, SQLi needs a single quote to raise a database error the baseline
+didn't, and open redirect needs a redirect param to land in `Location`.
 
-Two phases test the web layer directly:
+`security-headers` reports missing CSP/HSTS/X-Frame-Options/nosniff, weak cookie
+flags and CORS that reflects an arbitrary origin.
 
-- **`injection`** crawls the target, collects parameters from query strings and
-  HTML forms, and tests each for **reflected XSS** (a raw `<`/`>`/`"` payload must
-  reflect unencoded), **error-based SQLi** (a quote must induce a DB error absent
-  from the baseline) and **open redirect** (a redirect param must land in
-  `Location`).
-- **`security-headers`** audits missing hardening headers (CSP, X-Frame-Options,
-  nosniff, HSTS, Referrer-Policy), insecure cookie flags (HttpOnly / Secure /
-  SameSite) and dangerous **CORS** reflection.
-
-## Capturing a session
-
-`access-control` needs authenticated sessions. `wraith login` performs a form
-login and writes a ready-to-use `sessions.json`:
+`access-control` needs authenticated sessions. It crawls as the privileged
+session and replays every request as the lower-privilege and anonymous ones; a
+lower principal getting identical content is a vertical bypass, and mutating
+numeric ids surfaces IDOR. Grab a session with:
 
 ```bash
 wraith login http://target/login -u alice -p secret \
-    --user-field user --pass-field password --role low -o sessions.json
+    --user-field user --pass-field password -o sessions.json
 ```
 
-## The lab
+## Post-exploitation
+
+`wraith shell` is a separate interactive console — recon is batch work, landing
+a shell isn't:
+
+```
+wraith shell -l 9001,9002
+  payloads          reverse-shell one-liners for your LHOST
+  sessions          list connected shells
+  cmd 1 id          run a command on session 1
+  upgrade 1         turn a dumb shell into a PTY
+  interact 1        attach (detach with Ctrl-])
+```
+
+## Extending
+
+A phase is one file; a check can be pure data. See
+[docs/writing-a-phase.md](docs/writing-a-phase.md) and
+[docs/writing-a-template.md](docs/writing-a-template.md).
+
+```python
+from wraith.core.phase import Phase, register
+
+@register
+class MyPhase(Phase):
+    name = "my-phase"
+    requires = frozenset({"http-probe"})
+
+    async def run(self, ws, console):
+        for ep in ws.endpoints:
+            ...  # ws.add_finding(...)
+```
+
+## Lab
 
 `examples/vuln_app.py` is a deliberately vulnerable app to practise against and
 to exercise every web phase (BAC, IDOR, XSS, SQLi, open redirect, CORS, insecure
@@ -203,115 +169,17 @@ python3 examples/vuln_app.py &
 wraith run 127.0.0.1 --sessions examples/sessions.json
 ```
 
-## Templates
-
-`template-checks` runs declarative templates (a nuclei-lite engine) against every
-discovered host. Built-ins ship under `wraith/templates/` (`.git`/`.env`
-exposure, `phpinfo`, directory listing, Apache `server-status`, Swagger UI); add
-your own with `--templates DIR`.
-
-A template is JSON (or YAML, if `pyyaml` is installed) — one or more requests,
-each with matchers combined via `matchers-condition`:
-
-```json
-{
-  "id": "dotenv-exposure",
-  "info": { "name": "Exposed .env file", "severity": "high" },
-  "requests": [
-    {
-      "method": "GET",
-      "path": "/.env",
-      "matchers-condition": "and",
-      "matchers": [
-        { "type": "status", "status": [200] },
-        { "type": "regex", "part": "body", "regex": ["DB_(HOST|PASSWORD)", "APP_KEY="] }
-      ]
-    }
-  ]
-}
-```
-
-Matcher types: `status`, `word`, `regex` and `header`.
-
-## How it works
-
-- **Phase** — one stage of the kill-chain. Declares a unique `name`, the phases
-  it `requires`, and an async `run()`. Phases only ever touch the shared
-  `Workspace`, so they stay decoupled.
-- **Engine** — resolves the dependency DAG and schedules every ready phase
-  concurrently (bounded by `--concurrency`). A failing phase is isolated: it
-  never takes the pipeline down, and dependents are skipped cleanly.
-- **Workspace** — the single source of truth (hosts, services, endpoints,
-  sessions, findings). Persisted to disk after every phase, so runs are
-  inspectable and resumable.
-
-Writing a new phase:
-
-```python
-from wraith.core.phase import Phase, register
-
-@register
-class MyPhase(Phase):
-    name = "my-phase"
-    requires = frozenset({"http-probe"})
-    description = "What it does."
-
-    async def run(self, ws, console):
-        for ep in ws.endpoints:
-            ...  # add findings to the workspace
-```
-
-## Roadmap
-
-Built:
-
-- [x] Phase engine — DAG scheduling, async workers, failure isolation
-- [x] Persisted workspace + Markdown reporting
-- [x] `resolve` — DNS resolution
-- [x] `tcp-scan` — async TCP connect scan
-- [x] `http-probe` — status / server / title
-- [x] `access-control` — authenticated crawl + multi-session replay to detect
-      **Broken Access Control (OWASP A01)** and **IDOR**
-- [x] `content-discovery` — wordlist path/file discovery with soft-404 filtering
-- [x] `tech-detect` — fingerprint server / language / framework / CMS
-- [x] `vhost` — virtual-host discovery via Host-header fuzzing
-- [x] `template-checks` — declarative vulnerability templates (nuclei-lite)
-- [x] `security-headers` — security headers, cookie flags and CORS audit
-- [x] `injection` — reflected XSS, error-based SQLi and open redirect
-- [x] `shell` — post-exploitation handler: multi-listener, session management,
-      automatic PTY upgrade and reverse-shell payload generation
-- [x] `wraith login` — capture an authenticated session to `sessions.json`
-- [x] Markdown + dark HTML + JSON reporting, `--fail-on` for CI gating
-- [x] CI (GitHub Actions) running the test suite on Python 3.10–3.12
-
-Next:
-
-- [ ] request throttling / rate control
-- [ ] authenticated re-crawl feeding the injection phase
-
-## Development
+## Tests
 
 ```bash
-pip install -e ".[dev]"
-pytest
+pip install -e ".[dev]" && pytest
 ```
-
-The test suite covers the engine's DAG scheduling and failure handling, payload
-generation, technology fingerprinting, the IDOR id-mutation logic, the injection
-and security-header detectors, web parsing, workspace persistence and reporting.
-
-Extending wraith:
-
-- [docs/writing-a-phase.md](docs/writing-a-phase.md) — add a kill-chain stage
-- [docs/writing-a-template.md](docs/writing-a-template.md) — add a check without code
-- [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Legal
 
-`wraith` is built for authorized security testing, CTFs, and research **only**.
-Run it exclusively against systems you own or have explicit written permission
-to test. You are responsible for how you use it.
+For authorized testing only — systems you own or have written permission to
+assess. What you do with it is on you.
 
 ## License
 
-MIT © Gustavo Almeida
+MIT.
