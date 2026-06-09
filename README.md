@@ -18,9 +18,6 @@ has no third-party dependencies.
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![MIT](https://img.shields.io/badge/license-MIT-green)
 
-A wraith is something that moves unseen and gets past the wards — which is the
-job: enumerate quietly, follow the chain, and reach what shouldn't be reachable.
-
 - [Install](#install)
 - [Usage](#usage)
 - [Phases](#phases)
@@ -187,4 +184,4 @@ MIT.
 
 ---
 
-*Lock every door you own. A wraith was never going to use one.*
+*A wraith slips past every ward unseen, and is gone before the alarm.*
