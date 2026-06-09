@@ -1,13 +1,6 @@
 # wraith
 
-```text
-██╗    ██╗██████╗  █████╗ ██╗████████╗██╗  ██╗
-██║    ██║██╔══██╗██╔══██╗██║╚══██╔══╝██║  ██║
-██║ █╗ ██║██████╔╝███████║██║   ██║   ███████║
-██║███╗██║██╔══██╗██╔══██║██║   ██║   ██╔══██║
-╚███╔███╔╝██║  ██║██║  ██║██║   ██║   ██║  ██║
- ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝   ╚═╝   ╚═╝  ╚═╝
-```
+![wraith](docs/demo.svg)
 
 An offensive security scanner that runs the recon-to-exploitation workflow as a
 pipeline of small composable phases. Point it at a target; it resolves hosts,
@@ -15,6 +8,7 @@ scans ports, maps the web surface, tests it and reports what it finds. The core
 has no third-party dependencies.
 
 [![CI](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml/badge.svg)](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/gusta-ve/wraith?color=crimson)](https://github.com/gusta-ve/wraith/releases)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![MIT](https://img.shields.io/badge/license-MIT-green)
 
