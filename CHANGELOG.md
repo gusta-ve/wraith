@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.2.0]
+## [0.2.0] - 2026-06-09
 
 ### Added
 - ASCII banner with truecolor gradient and selectable themes
