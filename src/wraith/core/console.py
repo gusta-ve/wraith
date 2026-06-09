@@ -3,6 +3,9 @@
 Dependency-free (ANSI / truecolor). Colour auto-enables on a TTY and honours
 NO_COLOR; force it anywhere with WRAITH_COLOR=1. Pick a theme with --theme or
 WRAITH_THEME (crimson | matrix | ice | amber | mono).
+
+All output is routed through ``_emit`` so a phase's lines can be buffered and
+flushed as one block (see BufferedConsole), keeping concurrent phases readable.
 """
 
 from __future__ import annotations
@@ -16,7 +19,6 @@ RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 
-# Per-theme vertical gradient (top -> bottom RGB) for the wordmark + an accent.
 THEMES = {
     "crimson": {"grad": ((255, 80, 80), (110, 0, 12)), "accent": (255, 85, 85)},
     "matrix":  {"grad": ((150, 255, 150), (0, 80, 25)), "accent": (70, 255, 130)},
@@ -63,73 +65,73 @@ def _lerp(a, b, t):
 
 
 class Console:
+    _ABBR = {"Critical": "CRIT", "High": "HIGH", "Medium": "MED", "Low": "LOW", "Info": "INFO"}
+
     def __init__(self, theme=None, color=None, banner=True):
         name = theme or os.environ.get("WRAITH_THEME") or DEFAULT_THEME
         self.theme = THEMES.get(name, THEMES[DEFAULT_THEME])
         self.color = _supports_color(color)
         self.show_banner = banner
 
-    # ----- primitives -----
+    # All printing goes through here so subclasses can buffer it.
+    def _emit(self, text: str = "") -> None:
+        print(text)
+
     def _c(self, code: str, text: str) -> str:
         return f"{code}{text}{RESET}" if self.color else text
 
     def _accent(self, text: str) -> str:
         return self._c(_fg(self.theme["accent"]), text)
 
-    # ----- banner -----
     def banner(self) -> None:
         if not self.show_banner:
             return
-        print()
+        self._emit()
         c0, c1 = self.theme["grad"]
         for i, line in enumerate(WORDMARK):
             if self.color:
                 shade = _lerp(c0, c1, i / (len(WORDMARK) - 1))
-                print("  " + BOLD + _fg(shade) + line + RESET)
+                self._emit("  " + BOLD + _fg(shade) + line + RESET)
             else:
-                print("  " + line)
-        sub = "offensive recon & exploitation pipeline"
-        print()
-        print("  " + self._accent("» ") + self._c(DIM, sub) + "   " + self._c(DIM, f"v{__version__}"))
-        print("  " + self._c(DIM, "gusta-ve · github.com/gusta-ve/wraith · authorized use only"))
-        print()
+                self._emit("  " + line)
+        self._emit()
+        self._emit("  " + self._accent("» ")
+                   + self._c(DIM, "offensive recon & exploitation pipeline")
+                   + "   " + self._c(DIM, f"v{__version__}"))
+        self._emit("  " + self._c(DIM, "gusta-ve · github.com/gusta-ve/wraith · authorized use only"))
+        self._emit()
 
-    # ----- structure -----
     def rule(self, title: str = "") -> None:
         if title:
-            print(self._c(DIM, f"── {title} " + "─" * max(0, 52 - len(title))))
+            self._emit(self._c(DIM, f"── {title} " + "─" * max(0, 52 - len(title))))
         else:
-            print(self._c(DIM, "─" * 56))
+            self._emit(self._c(DIM, "─" * 56))
 
     def phase(self, name: str, description: str = "") -> None:
-        print()
-        print(self._accent("▸ ") + self._c(BOLD, name)
-              + (self._c(DIM, f"  {description}") if description else ""))
+        self._emit()
+        self._emit(self._accent("▸ ") + self._c(BOLD, name)
+                   + (self._c(DIM, f"  {description}") if description else ""))
 
-    # ----- status lines -----
     def info(self, msg) -> None:
-        print(self._c("\033[36m", "  [*] ") + str(msg))
+        self._emit(self._c("\033[36m", "  [*] ") + str(msg))
 
     def good(self, msg) -> None:
-        print(self._c("\033[32m", "  [+] ") + str(msg))
+        self._emit(self._c("\033[32m", "  [+] ") + str(msg))
 
     def warn(self, msg) -> None:
-        print(self._c("\033[33m", "  [!] ") + str(msg))
+        self._emit(self._c("\033[33m", "  [!] ") + str(msg))
 
     def bad(self, msg) -> None:
-        print(self._c("\033[31m", "  [-] ") + str(msg))
+        self._emit(self._c("\033[31m", "  [-] ") + str(msg))
 
     def plain(self, msg: str = "") -> None:
-        print(msg)
-
-    # ----- findings -----
-    _ABBR = {"Critical": "CRIT", "High": "HIGH", "Medium": "MED", "Low": "LOW", "Info": "INFO"}
+        self._emit(msg)
 
     def finding(self, severity_label: str, msg) -> None:
         rgb = SEVERITY_RGB.get(severity_label, (150, 150, 150))
         abbr = self._ABBR.get(severity_label, severity_label.upper()[:4])
         tag = f"[{abbr:<4}]"
-        print("  " + self._c(_fg(rgb) + BOLD, tag) + " " + str(msg))
+        self._emit("  " + self._c(_fg(rgb) + BOLD, tag) + " " + str(msg))
 
     def severity_summary(self, counts: dict) -> None:
         parts = []
@@ -138,4 +140,24 @@ class Console:
             if n:
                 parts.append(self._c(_fg(SEVERITY_RGB[label]) + BOLD, f"{label} {n}"))
         if parts:
-            print("  " + self._c(DIM, "findings  ") + "  ".join(parts))
+            self._emit("  " + self._c(DIM, "findings  ") + "  ".join(parts))
+
+
+class BufferedConsole(Console):
+    """Captures a phase's output and replays it as one block on flush(), so
+    phases running concurrently don't interleave their lines."""
+
+    def __init__(self, parent: Console):
+        self.theme = parent.theme
+        self.color = parent.color
+        self.show_banner = parent.show_banner
+        self._parent = parent
+        self._lines: list[str] = []
+
+    def _emit(self, text: str = "") -> None:
+        self._lines.append(text)
+
+    def flush(self) -> None:
+        for line in self._lines:
+            self._parent._emit(line)
+        self._lines.clear()

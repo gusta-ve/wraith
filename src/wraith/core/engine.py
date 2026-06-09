@@ -6,6 +6,8 @@ import asyncio
 import time
 from dataclasses import dataclass
 
+from wraith.core.console import BufferedConsole
+
 
 @dataclass
 class PhaseResult:
@@ -76,19 +78,23 @@ class Engine:
 
     async def _run_phase(self, phase, sem) -> PhaseResult:
         async with sem:
-            self.console.phase(phase.name, phase.description)
+            # Buffer this phase's output so concurrent phases don't interleave;
+            # the whole block is flushed atomically when the phase finishes.
+            buf = BufferedConsole(self.console)
+            buf.phase(phase.name, phase.description)
             before = len(self.ws.findings)
             t0 = time.perf_counter()
             status, error = "done", ""
             try:
-                await phase.run(self.ws, self.console)
+                await phase.run(self.ws, buf)
             except Exception as exc:  # one phase failing must not kill the pipeline
                 status, error = "failed", f"{type(exc).__name__}: {exc}"
-                self.console.bad(f"[{phase.name}] {error}")
+                buf.bad(f"[{phase.name}] {error}")
             duration = time.perf_counter() - t0
             added = len(self.ws.findings) - before
             try:
                 self.ws.save()  # persist after every phase -> resumable runs
             except Exception as exc:
-                self.console.warn(f"could not persist workspace: {exc}")
+                buf.warn(f"could not persist workspace: {exc}")
+            buf.flush()
             return PhaseResult(phase.name, status, duration, added, error)
