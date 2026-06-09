@@ -26,6 +26,8 @@ class Point:
 
 
 def is_ip(value: str) -> bool:
+    """True if value is already a literal IPv4/IPv6 address — i.e. there's
+    nothing to resolve, so the resolve phase can just record it and move on."""
     for family in (socket.AF_INET, socket.AF_INET6):
         try:
             socket.inet_pton(family, value)
@@ -36,15 +38,21 @@ def is_ip(value: str) -> bool:
 
 
 def extract_links(base: str, html: str, host: str) -> list:
+    """Same-host http(s) links found in a page, resolved to absolute URLs.
+
+    We deliberately stay on the target host and drop logout links: the first
+    keeps the crawler in scope, the second stops it from logging itself out
+    mid-crawl and losing the session we're testing with.
+    """
     links = []
     for m in _LINK_RE.finditer(html or ""):
         href = m.group(1).strip()
         if href.lower().startswith(("javascript:", "mailto:", "tel:", "data:")):
-            continue
-        absu = urljoin(base, href).split("#")[0]
+            continue  # not navigable URLs — nothing to crawl or test
+        absu = urljoin(base, href).split("#")[0]  # make absolute, drop the #fragment
         parts = urlsplit(absu)
         if parts.scheme not in ("http", "https") or parts.netloc != host:
-            continue
+            continue  # off-host or non-web — out of scope
         if any(x in absu.lower() for x in ("logout", "signout", "sign-out")):
             continue
         links.append(absu)
@@ -52,6 +60,8 @@ def extract_links(base: str, html: str, host: str) -> list:
 
 
 def extract_forms(base: str, html: str) -> list:
+    """Every <form> on the page as {action, method, inputs}. These become the
+    POST/GET injection points — a form is just a parameter set with an address."""
     forms = []
     for m in _FORM_RE.finditer(html or ""):
         attrs, inner = m.group(1), m.group(2)
@@ -66,6 +76,7 @@ def extract_forms(base: str, html: str) -> list:
 
 
 def params_from_url(url: str) -> dict:
+    """Query-string parameters as a flat dict (first value wins if repeated)."""
     return {k: v[0] for k, v in parse_qs(urlsplit(url).query).items()}
 
 
@@ -86,6 +97,12 @@ def build_points(url: str, html: str) -> list:
 
 async def crawl(seeds: list, host: str, fetch, max_pages: int = 25,
                 cookies=None, headers=None) -> dict:
+    """Breadth-first, same-host crawl returning {url: Response}.
+
+    Bounded by max_pages so a big site can't make a run drag on forever; we
+    only follow links out of HTML 2xx pages (an error or a binary download has
+    nothing worth queueing). Pass cookies/headers to crawl as a logged-in user.
+    """
     seen: set = set()
     out: dict = {}
     queue = deque(seeds)

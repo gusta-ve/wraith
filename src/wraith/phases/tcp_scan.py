@@ -1,4 +1,10 @@
-"""Scanning — async TCP connect scan of common ports."""
+"""Scanning — async TCP connect scan of common ports.
+
+A *connect* scan (full three-way handshake) rather than a SYN scan: it needs no
+raw sockets and no root, so it runs anywhere Python does. We fan out across all
+host/port pairs at once and cap concurrency with a semaphore so we probe fast
+without opening thousands of sockets simultaneously.
+"""
 
 from __future__ import annotations
 

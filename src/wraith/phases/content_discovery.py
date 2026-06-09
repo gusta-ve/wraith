@@ -78,6 +78,9 @@ class ContentDiscoveryPhase(Phase):
         return DEFAULT_WORDLIST
 
     async def _enumerate(self, ws, console, base, words) -> None:
+        # Ask for a path that almost certainly doesn't exist. Whatever comes
+        # back is this site's "nothing here" response — if a real word later
+        # returns a 200 that looks just like it, it's a soft-404, not a hit.
         rnd = "".join(random.choice(string.ascii_lowercase) for _ in range(12))
         baseline = await fetch(f"{base}/{rnd}", allow_redirects=False)
         sem = asyncio.Semaphore(self.CONCURRENCY)

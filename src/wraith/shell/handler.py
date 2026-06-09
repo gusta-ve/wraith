@@ -175,6 +175,9 @@ class ShellServer:
 
         self.console.info(f"interacting with session {sess.id} — detach: Ctrl-]")
         try:
+            # Raw mode so our terminal stops cooking input: every keystroke
+            # (Ctrl-C, tab, arrows) goes straight to the remote shell instead of
+            # being handled locally. We restore the saved settings in `finally`.
             tty.setraw(fd)
             sess.mirror_on()
             loop.add_reader(fd, on_stdin)

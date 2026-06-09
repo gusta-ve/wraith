@@ -58,10 +58,17 @@ def cookie_issues(set_cookie: str, scheme: str) -> list:
 
 
 def cors_issue(acao: str, acac: str, origin: str):
+    """Judge a CORS response to our forged Origin.
+
+    acao/acac are the Access-Control-Allow-Origin / -Allow-Credentials headers.
+    The dangerous case is a server that echoes back whatever Origin we sent: it
+    means any website can read this one's responses. With credentials allowed on
+    top of that, those reads happen as the logged-in victim — hence High.
+    """
     acao = acao or ""
     if acao == "*":
         return ("allows any origin (*)", Severity.LOW)
-    if origin and origin in acao:
+    if origin and origin in acao:                       # our fake origin came back reflected
         if (acac or "").lower() == "true":
             return (f"reflects arbitrary origin with credentials ({acao})", Severity.HIGH)
         return (f"reflects arbitrary origin ({acao})", Severity.MEDIUM)
