@@ -1,5 +1,5 @@
 {
-  "base_url": "http://127.0.0.1:8009",
+  "base_url": "http://127.0.0.1:8080",
   "seeds": ["/", "/account", "/admin", "/admin-secure"],
   "sessions": [
     { "name": "admin", "role": "high", "cookies": { "session": "admin-token" } },

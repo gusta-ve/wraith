@@ -19,7 +19,7 @@ import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-PORT = int(os.environ.get("PORT", "8009"))
+PORT = int(os.environ.get("PORT", "8080"))
 
 USERS = {"admin-token": ("admin", "admin"), "alice-token": ("alice", "user"), "bob-token": ("bob", "user")}
 ORDERS = {1: ("alice", "Keyboard — $80"), 2: ("bob", "Monitor — $300"), 3: ("admin", "Server rack — $5000")}
