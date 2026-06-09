@@ -45,13 +45,15 @@ Or without installing anything: `PYTHONPATH=src python3 -m wraith run target`.
 
 ## Usage
 
+`run` is the default command, so a target is all you need:
+
 ```bash
-wraith run target.com                          # full pipeline
-wraith run 10.10.10.5 --phases resolve,tcp-scan,http-probe
-wraith run target.com --sessions sessions.json # adds access-control / IDOR
-wraith run target.com --fail-on high           # exit code 2 on a High+ finding
-wraith run target.com --showdown               # reveal the hand it was holding at the end
-wraith --theme matrix run target.com           # crimson (default) | matrix | ice | amber | mono
+wraith target.com                              # full pipeline (no subcommand needed)
+wraith 10.10.10.5 -p resolve,tcp-scan,http-probe   # only these phases
+wraith target.com -s sessions.json             # adds access-control / IDOR
+wraith target.com -x high                      # exit code 2 on a High+ finding
+wraith target.com --showdown                   # reveal the hand it was holding at the end
+wraith --theme matrix target.com               # crimson (default) | matrix | ice | amber | mono
 wraith phases                                  # list phases and their dependencies
 ```
 
@@ -152,7 +154,7 @@ cookies, missing headers):
 
 ```bash
 python3 examples/vuln_app.py &
-wraith run 127.0.0.1 --sessions examples/sessions.json
+wraith 127.0.0.1 -s examples/sessions.json
 ```
 
 ## Tests

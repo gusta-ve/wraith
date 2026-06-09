@@ -20,6 +20,51 @@ from wraith.core.phase import PHASE_REGISTRY
 
 _SEVERITY_BY_NAME = {s.label.lower(): s for s in Severity}
 
+# Subcommands. Anything else on the command line is treated as a target for the
+# default `run` command, so `wraith example.com` works without typing `run`.
+_COMMANDS = {"run", "phases", "shell", "login", "aces"}
+
+EXAMPLES = """\
+examples:
+  wraith example.com                     full scan — `run` is the default command
+  wraith example.com -p tcp-scan,http-probe   only these phases
+  wraith example.com -s sessions.json    add Broken Access Control / IDOR
+  wraith example.com -x high             exit 2 if a High+ finding turns up
+  wraith example.com --showdown          reveal the findings at the end
+  wraith login http://host/login -u alice -p secret -o sessions.json
+  wraith shell -l 9001                   catch a reverse shell
+
+run `wraith phases` to see the pipeline; phases run concurrently by dependency.
+"""
+
+
+class _Help(argparse.RawDescriptionHelpFormatter):
+    """Keep the examples block verbatim and give options room to breathe."""
+
+    def __init__(self, prog):
+        super().__init__(prog, max_help_position=30, width=86)
+
+
+def _with_default_command(argv):
+    """Insert `run` when the first non-option token isn't a known subcommand,
+    so the common case (`wraith TARGET ...`) needs no subcommand at all."""
+    out = list(argv)
+    i = 0
+    while i < len(out):
+        tok = out[i]
+        if tok in ("-h", "--help", "--version"):
+            return out                       # let argparse handle these as-is
+        if tok == "--theme":                 # the one global option that takes a value
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        if tok not in _COMMANDS:             # first bare word is a target -> default to run
+            out.insert(i, "run")
+        return out
+    return out
+
 
 def _console(args) -> Console:
     return Console(
@@ -187,45 +232,53 @@ def cmd_shell(args) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="wraith", description="Offensive recon & exploitation pipeline.")
+    p = argparse.ArgumentParser(
+        prog="wraith",
+        description="Offensive recon & exploitation pipeline.  Run is the default: `wraith TARGET`.",
+        epilog=EXAMPLES,
+        formatter_class=_Help,
+    )
     p.add_argument("--version", action="version", version=f"wraith {__version__}")
-    p.add_argument("--theme", choices=list(THEMES), help="colour theme (default: crimson)")
+    p.add_argument("--theme", metavar="NAME", choices=list(THEMES),
+                   help="colour theme: " + " | ".join(THEMES) + " (default: crimson)")
     p.add_argument("--no-color", action="store_true", help="disable coloured output")
     p.add_argument("--no-banner", action="store_true", help="suppress the ASCII banner")
-    sub = p.add_subparsers(dest="command", required=True, metavar="<command>")
+    sub = p.add_subparsers(dest="command", metavar="<command>")
 
-    run = sub.add_parser("run", help="run the pipeline against a target")
-    run.add_argument("target", help="hostname or IP")
-    run.add_argument("--phases", help="comma-separated subset of phases to run")
-    run.add_argument("--concurrency", type=int, default=8, help="max phases running in parallel")
-    run.add_argument("--sessions", help="JSON file with sessions/base_url/seeds (for access-control)")
-    run.add_argument("--wordlist", help="path to a wordlist for content-discovery")
-    run.add_argument("--templates", help="extra directory of template-checks templates")
-    run.add_argument("--fail-on", choices=list(_SEVERITY_BY_NAME),
-                     help="exit 2 if a finding at/above this severity is found")
-    run.add_argument("--showdown", action="store_true",
-                     help="reveal the wraith and the hand it was holding (your findings) at the end")
-    run.add_argument("--workdir", default="wraith-runs", help="base directory for run output")
+    run = sub.add_parser("run", help="scan a target (default command)", epilog=EXAMPLES,
+                         formatter_class=_Help, description="Run the phase pipeline against a target.")
+    run.add_argument("target", help="hostname, IP or URL")
+    run.add_argument("-p", "--phases", metavar="LIST", help="comma-separated subset of phases (default: all)")
+    run.add_argument("-s", "--sessions", metavar="FILE", help="sessions JSON — enables access-control / IDOR")
+    run.add_argument("-w", "--wordlist", metavar="FILE", help="wordlist for content-discovery")
+    run.add_argument("-t", "--templates", metavar="DIR", help="extra template-checks directory")
+    run.add_argument("-x", "--fail-on", metavar="SEV", choices=list(_SEVERITY_BY_NAME),
+                     help="exit 2 on a finding at/above SEV (info|low|medium|high|critical)")
+    run.add_argument("--showdown", action="store_true", help="reveal the wraith and its hand at the end")
+    run.add_argument("-c", "--concurrency", metavar="N", type=int, default=8,
+                     help="max phases running in parallel (default: 8)")
+    run.add_argument("--workdir", metavar="DIR", default="wraith-runs", help="output directory (default: wraith-runs)")
     run.set_defaults(func=cmd_run)
 
-    ph = sub.add_parser("phases", help="list available phases")
+    ph = sub.add_parser("phases", help="list available phases", formatter_class=_Help)
     ph.set_defaults(func=cmd_phases)
 
-    sh = sub.add_parser("shell", help="reverse-shell handler / post-exploitation console")
-    sh.add_argument("-l", "--listen", default="9001", help="comma-separated ports to listen on")
-    sh.add_argument("--lhost", help="local host embedded in generated payloads (auto-detected)")
+    sh = sub.add_parser("shell", help="reverse-shell handler / post-exploitation console", formatter_class=_Help)
+    sh.add_argument("-l", "--listen", metavar="PORTS", default="9001",
+                    help="comma-separated ports to listen on (default: 9001)")
+    sh.add_argument("--lhost", metavar="IP", help="LHOST embedded in generated payloads (auto-detected)")
     sh.set_defaults(func=cmd_shell)
 
-    lg = sub.add_parser("login", help="authenticate to a form login and emit a sessions.json")
+    lg = sub.add_parser("login", help="grab a session from a form login -> sessions.json", formatter_class=_Help)
     lg.add_argument("url", help="login form URL (GET to seed cookies, POST to submit)")
     lg.add_argument("-u", "--username", required=True)
     lg.add_argument("-p", "--password", required=True)
-    lg.add_argument("--user-field", default="username", help="username form field name")
-    lg.add_argument("--pass-field", default="password", help="password form field name")
-    lg.add_argument("--data", action="append", help="extra form field k=v (repeatable)")
-    lg.add_argument("--name", default="user", help="session name for the output")
-    lg.add_argument("--role", default="low", help="session role (none/low/med/high)")
-    lg.add_argument("-o", "--output", help="write the sessions.json to this path")
+    lg.add_argument("-o", "--output", metavar="FILE", help="write the sessions.json here (default: stdout)")
+    lg.add_argument("--user-field", metavar="NAME", default="username", help="username form field name")
+    lg.add_argument("--pass-field", metavar="NAME", default="password", help="password form field name")
+    lg.add_argument("--data", metavar="K=V", action="append", help="extra form field (repeatable)")
+    lg.add_argument("--name", metavar="NAME", default="user", help="session name for the output")
+    lg.add_argument("--role", metavar="ROLE", default="low", help="session role (none/low/med/high)")
     lg.set_defaults(func=cmd_login)
 
     egg = sub.add_parser("aces")  # easter egg: no help= keeps it out of the listing
@@ -235,7 +288,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> None:
-    args = build_parser().parse_args(argv)
+    argv = sys.argv[1:] if argv is None else list(argv)
+    parser = build_parser()
+    if not argv:                         # bare `wraith` -> banner + help, not an error
+        Console().banner()
+        parser.print_help()
+        return
+    args = parser.parse_args(_with_default_command(argv))
+    if not hasattr(args, "func"):        # options but no command
+        parser.print_help()
+        return
     args.func(args)
 
 
