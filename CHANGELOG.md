@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.3.2] - 2026-06-10
 
 ### Added
 - `wraith login` now reads the login form on the page: it submits to the form's
