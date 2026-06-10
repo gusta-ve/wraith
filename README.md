@@ -47,13 +47,13 @@ Or without installing anything: `PYTHONPATH=src python3 -m wraith run target`.
 <details>
 <summary>Restricted network (proxy / broken IPv6 / HTTP-2 hiccups)</summary>
 
-If `pip`/`git` time out on PyPI or GitHub, grab the prebuilt wheel — one file,
+If `pip`/`git` time out on PyPI or GitHub, grab the prebuilt wheel from the
+[releases page](https://github.com/gusta-ve/wraith/releases/latest) — one file,
 zero dependencies, no clone and no build step:
 
 ```bash
 python3 -m venv ~/.local/share/wraith-venv
-~/.local/share/wraith-venv/bin/pip install \
-  https://github.com/gusta-ve/wraith/releases/latest/download/wraith_sec-0.3.3-py3-none-any.whl
+~/.local/share/wraith-venv/bin/pip install ./wraith_sec-*.whl   # the wheel you downloaded
 ln -sf ~/.local/share/wraith-venv/bin/wraith ~/.local/bin/wraith
 ```
 
