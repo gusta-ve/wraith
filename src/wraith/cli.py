@@ -8,7 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urljoin, urlsplit
 
 import wraith.phases  # noqa: F401  (importing populates PHASE_REGISTRY)
 from wraith import __version__
@@ -191,6 +191,36 @@ def cmd_run(args) -> None:
         sys.exit(2)
 
 
+def _login_form(html: str, page_url: str):
+    """Find the login form on the page and return (action_url, hidden_fields).
+
+    The login form is the one with a password input. We grab its action (where
+    the POST really goes — often /auth/login, not the page URL) and every hidden
+    field, so anti-CSRF tokens (ASP.NET __RequestVerificationToken, Django
+    csrfmiddlewaretoken, Rails authenticity_token...) ride along automatically.
+    Returns (None, {}) when no such form is found.
+    """
+    import re
+
+    for fm in re.finditer(r"<form\b([^>]*)>(.*?)</form>", html or "", re.I | re.S):
+        attrs, inner = fm.group(1), fm.group(2)
+        if not re.search(r'type\s*=\s*["\']password', inner, re.I):
+            continue  # not the login form
+        action_m = re.search(r'action\s*=\s*["\']([^"\']*)', attrs, re.I)
+        action = urljoin(page_url, action_m.group(1)) if action_m and action_m.group(1) else page_url
+        hidden = {}
+        for inp in re.finditer(r"<input\b([^>]*)>", inner, re.I):
+            a = inp.group(1)
+            if not re.search(r'type\s*=\s*["\']hidden', a, re.I):
+                continue
+            name = re.search(r'name\s*=\s*["\']([^"\']+)', a, re.I)
+            value = re.search(r'value\s*=\s*["\']([^"\']*)', a, re.I)
+            if name:
+                hidden[name.group(1)] = value.group(1) if value else ""
+        return action, hidden
+    return None, {}
+
+
 def cmd_login(args) -> None:
     """Authenticate against a form login and emit a sessions.json snippet."""
     import http.cookiejar
@@ -206,17 +236,35 @@ def cmd_login(args) -> None:
         urllib.request.HTTPSHandler(context=ctx),
         urllib.request.HTTPCookieProcessor(jar),
     )
+    ua = {"User-Agent": "wraith/0.1"}
 
-    fields = {args.user_field: args.username, args.pass_field: args.password}
+    # GET the login page first: seeds the session cookie *and* lets us read the
+    # form's real action and any hidden token it expects on submit.
+    action, hidden = args.url, {}
+    try:
+        with opener.open(urllib.request.Request(args.url, headers=ua), timeout=10) as resp:
+            html = resp.read(200000).decode("utf-8", "ignore")
+        found_action, hidden = _login_form(html, args.url)
+        if found_action:
+            action = found_action
+            if hidden:
+                c.info(f"form action {action} · carried {len(hidden)} hidden field(s): {', '.join(hidden)}")
+    except Exception as exc:
+        raise SystemExit(f"could not load login page: {exc}")
+
+    # hidden fields first, then our credentials and any --data overrides on top.
+    fields = dict(hidden)
+    fields[args.user_field] = args.username
+    fields[args.pass_field] = args.password
     for pair in args.data or []:
         if "=" in pair:
             k, v = pair.split("=", 1)
             fields[k] = v
-    body = "&".join(f"{k}={v}" for k, v in fields.items()).encode()
+    body = urlencode(fields).encode()
 
     try:
-        opener.open(urllib.request.Request(args.url, headers={"User-Agent": "wraith/0.1"}), timeout=10)
-        opener.open(urllib.request.Request(args.url, data=body, headers={"User-Agent": "wraith/0.1"}), timeout=10)
+        post = urllib.request.Request(action, data=body, headers={**ua, "Referer": args.url})
+        opener.open(post, timeout=10)
     except Exception as exc:
         raise SystemExit(f"login request failed: {exc}")
 
