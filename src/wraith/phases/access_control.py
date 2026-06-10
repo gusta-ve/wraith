@@ -100,20 +100,24 @@ class AccessControlPhase(Phase):
                         public = True       # anon sees the same content -> it's public
                     else:
                         bypassers.append(s)
-            if public:
+            if public or not bypassers:
                 continue
-            for s in bypassers:
-                sev = Severity.HIGH if rank(s) < rank(priv) else Severity.MEDIUM
-                console.finding(sev.label, f"BAC  '{s.name}' → {urlsplit(url).path}")
-                ws.add_finding(
-                    title=f"Broken Access Control at {urlsplit(url).path}",
-                    severity=sev,
-                    phase=self.name,
-                    target=url,
-                    evidence=f"session '{s.name}' (role {s.role}) received 2xx matching privileged '{priv.name}'",
-                    description="A lower-privilege principal received the same protected content as a "
-                                "privileged one (Autorize-style differential replay).",
-                )
+            # One finding per protected resource, not one per session. A principal
+            # ranked below the privileged one reaching it is a real vertical bypass
+            # (High); a same-rank principal is a weaker horizontal issue (Medium).
+            sev = Severity.HIGH if any(rank(s) < rank(priv) for s in bypassers) else Severity.MEDIUM
+            who = ", ".join(s.name for s in bypassers)
+            path = urlsplit(url).path
+            console.finding(sev.label, f"BAC  {path}  ← {who}")
+            ws.add_finding(
+                title=f"Broken Access Control at {path}",
+                severity=sev,
+                phase=self.name,
+                target=url,
+                evidence=f"session(s) {who} received 2xx matching privileged '{priv.name}'",
+                description="A lower-privilege principal received the same protected content as a "
+                            "privileged one (Autorize-style differential replay).",
+            )
 
     # ----------------------------------------------------------------- IDOR
     async def _test_idor(self, ws, console, sessions, rank, discovered) -> None:
