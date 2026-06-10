@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.3.0] - 2026-06-10
 
 ### Added
 - `run` is the default command (`wraith TARGET`, no subcommand needed), short
