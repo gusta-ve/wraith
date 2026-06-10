@@ -1,7 +1,7 @@
 """A deliberately vulnerable demo app — a small lab to practise against and to
 exercise wraith's web phases. FOR LOCAL TESTING ONLY.
 
-    python3 examples/vuln_app.py            # default port 8009 (PORT env to change)
+    python3 examples/vuln_app.py            # default port 8080 (PORT env to change)
 
 Planted issues (and the phase that finds each):
   /admin                  logged-in but no role check     -> access-control (BAC)
