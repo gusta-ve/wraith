@@ -18,6 +18,7 @@ from wraith.core.context import Workspace
 from wraith.core.engine import Engine
 from wraith.core.models import Severity
 from wraith.core.phase import PHASE_REGISTRY
+from wraith.core.showdown import Showdown
 
 _SEVERITY_BY_NAME = {s.label.lower(): s for s in Severity}
 
@@ -73,7 +74,8 @@ def _console(args) -> Console:
         color=False if getattr(args, "no_color", False) else None,
         banner=not getattr(args, "no_banner", False),
     )
-    c.showdown_mode = bool(_load_config().get("showdown"))  # banner shows when on
+    if _load_config().get("showdown"):       # mode on -> wire it to the console
+        c.showdown = Showdown(c)
     return c
 
 
@@ -174,18 +176,16 @@ def cmd_run(args) -> None:
     if fail:
         c.warn(f"findings at/above '{args.fail_on}' (worst: {worst.label}) — exit 2")
 
-    # When showdown mode is on (toggled by `wraith showdown`), a run that catches
-    # something reveals the spectre above the findings. Off, wraith stays plain.
-    # --no-banner keeps it out of logs/CI.
-    vulns = [f for f in ws.findings if f.severity >= Severity.LOW]
-    if _load_config().get("showdown") and vulns and c.show_banner:
-        c.showdown()
-
-    c.findings_report(ws.findings)
-    counts = {}
-    for f in ws.findings:
-        counts[f.severity.label] = counts.get(f.severity.label, 0) + 1
-    c.severity_summary(counts)
+    if c.showdown is not None:
+        # Showdown mode owns the ending: reveal, kill-chain, receipts, verdict.
+        c.showdown.close(ws)
+    else:
+        # Plain run: the findings, then the tally.
+        c.findings_report(ws.findings)
+        counts = {}
+        for f in ws.findings:
+            counts[f.severity.label] = counts.get(f.severity.label, 0) + 1
+        c.severity_summary(counts)
 
     if fail:
         sys.exit(2)
@@ -247,8 +247,8 @@ def cmd_showdown(args) -> None:
     _save_config(cfg)
     if cfg["showdown"]:
         if c.show_banner:
-            c.showdown()
-        c.good("showdown mode ON — runs now reveal the wraith on a find (run `wraith showdown` again to turn off)")
+            c.aces()
+        c.good("showdown mode ON — runs now play the catch out (run `wraith showdown` again to turn off)")
     else:
         c.info("showdown mode OFF — wraith runs plain again")
 

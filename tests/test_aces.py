@@ -33,14 +33,6 @@ def test_aces_renders_art_and_phrase(capsys):
     assert "A♣" in out and "A♥" in out   # the pocket aces
 
 
-def test_showdown_lays_down_the_aces(capsys):
-    Console(color=False, banner=False).showdown()
-    out = capsys.readouterr().out
-    assert "@" in out or "%" in out          # the wraith silhouette
-    assert "A♣" in out and "A♥" in out       # the pocket aces — the signature
-    assert "holding aces" in out             # the showdown phrase
-
-
 def test_banner_is_clean_wordmark(capsys):
     Console(color=False, banner=True).banner()
     out = capsys.readouterr().out
@@ -51,7 +43,8 @@ def test_banner_is_clean_wordmark(capsys):
 
 
 def test_banner_flags_showdown_mode_when_active(capsys):
+    from wraith.core.showdown import Showdown
     c = Console(color=False, banner=True)
-    c.showdown_mode = True
+    c.showdown = Showdown(c)
     c.banner()
     assert "showdown mode" in capsys.readouterr().out

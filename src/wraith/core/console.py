@@ -77,7 +77,7 @@ class Console:
         self.theme = THEMES.get(name, THEMES[DEFAULT_THEME])
         self.color = _supports_color(color)
         self.show_banner = banner
-        self.showdown_mode = False  # set by the CLI when `wraith showdown` is on
+        self.showdown = None  # a Showdown (see core/showdown.py) when the mode is on, else None
 
     # All printing goes through here so subclasses can buffer it.
     def _emit(self, text: str = "") -> None:
@@ -102,9 +102,9 @@ class Console:
                    + self._c(DIM, "offensive recon & exploitation pipeline")
                    + "   " + self._c(DIM, f"v{__version__}"))
         self._emit("  " + self._c(DIM, "gusta-ve · github.com/gusta-ve/wraith · authorized use only"))
-        if self.showdown_mode:
+        if self.showdown:
             self._emit("  " + self._accent("◆ ") + self._c(BOLD, "showdown mode")
-                       + self._c(DIM, " — the wraith reveals its hand on a find"))
+                       + self._c(DIM, " — the wraith plays the catch out"))
         self._emit()
 
     def _reaper(self) -> None:
@@ -159,8 +159,6 @@ class Console:
         white, red = _fg((235, 235, 235)), _fg((255, 80, 80))
         self._reveal(self._c(BOLD + white, "A♣") + "  " + self._c(BOLD + red, "A♥"))
 
-    showdown = aces  # the end-of-run reveal is the same hand
-
     @staticmethod
     def _tint(run, idx, lo, hi) -> str:
         if not run:
@@ -197,6 +195,9 @@ class Console:
         self._emit(msg)
 
     def finding(self, severity_label: str, msg) -> None:
+        if self.showdown is not None:        # showdown mode dresses each catch up
+            self.showdown.live_finding(self, severity_label, str(msg))
+            return
         rgb = SEVERITY_RGB.get(severity_label, (150, 150, 150))
         abbr = self._ABBR.get(severity_label, severity_label.upper()[:4])
         tag = f"[{abbr:<4}]"
@@ -252,6 +253,7 @@ class BufferedConsole(Console):
         self.theme = parent.theme
         self.color = parent.color
         self.show_banner = parent.show_banner
+        self.showdown = parent.showdown   # so per-phase findings get the live treatment
         self._parent = parent
         self._lines: list[str] = []
 
