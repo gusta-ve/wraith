@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "wraith"
-version = "0.3.2"
+name = "wraith-sec"
+version = "0.3.3"
 description = "Offensive security orchestration framework — walks the kill-chain as a pipeline."
 readme = "README.md"
 requires-python = ">=3.10"

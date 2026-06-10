@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.3] - 2026-06-10
+
+### Changed
+- Published to PyPI as `wraith-sec` (the name `wraith` was taken) — install with
+  `pipx install wraith-sec`; the command is still `wraith`. Releases now build
+  and publish to PyPI automatically via Trusted Publishing.
+
 ## [0.3.2] - 2026-06-10
 
 ### Added

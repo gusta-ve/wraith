@@ -29,8 +29,8 @@ pip via PEP 668):
 
 ```bash
 sudo apt install -y pipx && pipx ensurepath
-pipx install "git+https://github.com/gusta-ve/wraith"
-pipx install "wraith[http] @ git+https://github.com/gusta-ve/wraith"   # + httpx, faster probing
+pipx install wraith-sec            # the command is `wraith`
+pipx install "wraith-sec[http]"    # + httpx, faster probing
 ```
 
 From a clone:
@@ -42,6 +42,23 @@ pip install -e ".[http]"
 ```
 
 Or without installing anything: `PYTHONPATH=src python3 -m wraith run target`.
+
+<details>
+<summary>Restricted network (proxy / broken IPv6 / HTTP-2 hiccups)</summary>
+
+If `pip`/`git` time out on PyPI or GitHub, grab the prebuilt wheel — one file,
+zero dependencies, no clone and no build step:
+
+```bash
+python3 -m venv ~/.local/share/wraith-venv
+~/.local/share/wraith-venv/bin/pip install \
+  https://github.com/gusta-ve/wraith/releases/latest/download/wraith_sec-0.3.3-py3-none-any.whl
+ln -sf ~/.local/share/wraith-venv/bin/wraith ~/.local/bin/wraith
+```
+
+`git clone` failing with *"HTTP2 framing layer"*? Force HTTP/1.1:
+`git config --global http.version HTTP/1.1`.
+</details>
 
 ## Usage
 
