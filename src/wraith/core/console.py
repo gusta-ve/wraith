@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 from wraith import __version__
@@ -76,6 +77,7 @@ class Console:
         self.theme = THEMES.get(name, THEMES[DEFAULT_THEME])
         self.color = _supports_color(color)
         self.show_banner = banner
+        self.showdown_mode = False  # set by the CLI when `wraith showdown` is on
 
     # All printing goes through here so subclasses can buffer it.
     def _emit(self, text: str = "") -> None:
@@ -100,14 +102,23 @@ class Console:
                    + self._c(DIM, "offensive recon & exploitation pipeline")
                    + "   " + self._c(DIM, f"v{__version__}"))
         self._emit("  " + self._c(DIM, "gusta-ve · github.com/gusta-ve/wraith · authorized use only"))
+        if self.showdown_mode:
+            self._emit("  " + self._accent("◆ ") + self._c(BOLD, "showdown mode")
+                       + self._c(DIM, " — the wraith reveals its hand on a find"))
         self._emit()
 
     def _reaper(self) -> None:
-        """Render the hooded-wraith line-art with a pale-blue -> bright-white glow."""
+        """Render the hooded-wraith line-art with a pale-blue -> bright-white glow.
+
+        On a real terminal the lines are drawn one at a time, so the spectre
+        appears to descend into view. Piped or non-interactive output (logs, CI,
+        tests) gets the whole thing at once — no artificial delay.
+        """
         try:
             art = (_ART_DIR / "wraith.txt").read_text(encoding="utf-8").rstrip("\n").split("\n")
         except OSError:
             return
+        live = self.color and sys.stdout.isatty()
         lo, hi = (150, 175, 215), (240, 245, 255)  # pale blue -> bright white
         for line in art:
             if not self.color:
@@ -124,6 +135,9 @@ class Console:
                 run += ch
             out += self._tint(run, idx, lo, hi)
             self._emit(out)
+            if live:
+                sys.stdout.flush()
+                time.sleep(0.03)  # the descent
 
     def _reveal(self, hand: str) -> None:
         """The wraith's line-art + the showdown phrase, with whatever it was holding."""
@@ -136,14 +150,16 @@ class Console:
         self._emit()
 
     def aces(self) -> None:
-        """Showdown with the pocket aces (easter egg: `wraith aces`)."""
+        """The reveal — the spectre laying down its pocket aces.
+
+        Used both on demand (the `wraith aces` easter egg) and as the end-of-run
+        showdown when wraith catches a vulnerability; the findings it caught are
+        listed right after, by findings_report().
+        """
         white, red = _fg((235, 235, 235)), _fg((255, 80, 80))
         self._reveal(self._c(BOLD + white, "A♣") + "  " + self._c(BOLD + red, "A♥"))
 
-    def showdown(self, findings: int) -> None:
-        """End-of-run reveal: the hand the wraith was holding all along — your findings."""
-        plural = "" if findings == 1 else "s"
-        self._reveal(self._c(BOLD + _fg((255, 80, 80)), f"{findings} finding{plural}"))
+    showdown = aces  # the end-of-run reveal is the same hand
 
     @staticmethod
     def _tint(run, idx, lo, hi) -> str:
@@ -185,6 +201,38 @@ class Console:
         abbr = self._ABBR.get(severity_label, severity_label.upper()[:4])
         tag = f"[{abbr:<4}]"
         self._emit("  " + self._c(_fg(rgb) + BOLD, tag) + " " + str(msg))
+
+    _SEV_ORDER = ("Critical", "High", "Medium", "Low", "Info")
+
+    def findings_report(self, findings) -> None:
+        """Final, at-a-glance list of what's actually exploitable — worst first.
+
+        Only real issues (Low and up); Info noise like a server banner stays in
+        the files, not on screen. Colour does the heavy lifting, no ASCII boxes.
+        """
+        rank = {label: i for i, label in enumerate(self._SEV_ORDER)}
+        vulns = sorted(
+            (f for f in findings if rank.get(f.severity.label, 99) <= rank["Low"]),
+            key=lambda f: (rank.get(f.severity.label, 99), f.severity.label),
+        )
+        self.rule("vulnerabilities")
+        if not vulns:
+            self._emit("  " + self._c(DIM, "no vulnerabilities surfaced"))
+            return
+        seen = set()
+        for f in vulns:
+            # The same issue can be logged more than once (e.g. one BAC finding
+            # per bypassing session). Collapse it here; the per-session detail
+            # still lives in the saved reports.
+            key = (f.severity.label, f.title, f.target)
+            if key in seen:
+                continue
+            seen.add(key)
+            rgb = SEVERITY_RGB.get(f.severity.label, (150, 150, 150))
+            abbr = self._ABBR.get(f.severity.label, f.severity.label.upper()[:4])
+            tag = self._c(_fg(rgb) + BOLD, f"[{abbr:<4}]")
+            target = self._c(DIM, f"  {f.target}") if f.target else ""
+            self._emit(f"  {tag} {self._c(BOLD, f.title)}{target}")
 
     def severity_summary(self, counts: dict) -> None:
         parts = []

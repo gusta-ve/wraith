@@ -16,7 +16,7 @@ def test_global_option_before_target_is_preserved():
 
 
 def test_real_subcommands_are_left_alone():
-    for cmd in ("run", "phases", "shell", "login", "aces"):
+    for cmd in ("run", "showdown", "phases", "shell", "login", "aces"):
         assert _with_default_command([cmd]) == [cmd]
     assert _with_default_command(["run", "example.com"]) == ["run", "example.com"]
 

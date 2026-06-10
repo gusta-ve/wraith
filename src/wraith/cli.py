@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -22,7 +23,7 @@ _SEVERITY_BY_NAME = {s.label.lower(): s for s in Severity}
 
 # Subcommands. Anything else on the command line is treated as a target for the
 # default `run` command, so `wraith example.com` works without typing `run`.
-_COMMANDS = {"run", "phases", "shell", "login", "aces"}
+_COMMANDS = {"run", "showdown", "phases", "shell", "login", "aces"}
 
 EXAMPLES = """\
 examples:
@@ -30,7 +31,7 @@ examples:
   wraith example.com -p tcp-scan,http-probe   only these phases
   wraith example.com -s sessions.json    add Broken Access Control / IDOR
   wraith example.com -x high             exit 2 if a High+ finding turns up
-  wraith example.com --showdown          reveal the findings at the end
+  wraith showdown                        toggle showdown mode (reveal on a find; sticks)
   wraith login http://host/login -u alice -p secret -o sessions.json
   wraith shell -l 9001                   catch a reverse shell
 
@@ -67,11 +68,32 @@ def _with_default_command(argv):
 
 
 def _console(args) -> Console:
-    return Console(
+    c = Console(
         theme=getattr(args, "theme", None),
         color=False if getattr(args, "no_color", False) else None,
         banner=not getattr(args, "no_banner", False),
     )
+    c.showdown_mode = bool(_load_config().get("showdown"))  # banner shows when on
+    return c
+
+
+# `wraith showdown` flips a mode that sticks between runs, so it's persisted here.
+_CONFIG_PATH = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "wraith" / "config.json"
+
+
+def _load_config() -> dict:
+    try:
+        return json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_config(cfg: dict) -> None:
+    try:
+        _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _CONFIG_PATH.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def _select(names):
@@ -142,24 +164,31 @@ def cmd_run(args) -> None:
         f"hosts {len(ws.hosts)} · services {len(ws.services)} · "
         f"endpoints {len(ws.endpoints)} · findings {len(ws.findings)}"
     )
-    counts = {}
-    for f in ws.findings:
-        counts[f.severity.label] = counts.get(f.severity.label, 0) + 1
-    c.severity_summary(counts)
     c.info(f"workspace  {ws.workdir / 'workspace.json'}")
     c.info(f"report     {report_md}")
     c.info(f"report     {report_html}")
     c.info(f"findings   {report_json}")
 
-    if args.showdown:
-        c.showdown(len(ws.findings))
+    worst = max((f.severity for f in ws.findings), default=Severity.INFO)
+    fail = bool(args.fail_on) and bool(ws.findings) and worst >= _SEVERITY_BY_NAME[args.fail_on]
+    if fail:
+        c.warn(f"findings at/above '{args.fail_on}' (worst: {worst.label}) — exit 2")
 
-    if args.fail_on:
-        threshold = _SEVERITY_BY_NAME[args.fail_on]
-        worst = max((f.severity for f in ws.findings), default=Severity.INFO)
-        if ws.findings and worst >= threshold:
-            c.warn(f"findings at/above '{args.fail_on}' (worst: {worst.label}) — exit 2")
-            sys.exit(2)
+    # When showdown mode is on (toggled by `wraith showdown`), a run that catches
+    # something reveals the spectre above the findings. Off, wraith stays plain.
+    # --no-banner keeps it out of logs/CI.
+    vulns = [f for f in ws.findings if f.severity >= Severity.LOW]
+    if _load_config().get("showdown") and vulns and c.show_banner:
+        c.showdown()
+
+    c.findings_report(ws.findings)
+    counts = {}
+    for f in ws.findings:
+        counts[f.severity.label] = counts.get(f.severity.label, 0) + 1
+    c.severity_summary(counts)
+
+    if fail:
+        sys.exit(2)
 
 
 def cmd_login(args) -> None:
@@ -209,6 +238,21 @@ def cmd_login(args) -> None:
         print(text)
 
 
+def cmd_showdown(args) -> None:
+    """Toggle showdown mode on/off — it sticks between runs. While on, every run
+    that finds a vulnerability reveals the wraith (more mode behaviour to come)."""
+    c = _console(args)
+    cfg = _load_config()
+    cfg["showdown"] = not cfg.get("showdown", False)
+    _save_config(cfg)
+    if cfg["showdown"]:
+        if c.show_banner:
+            c.showdown()
+        c.good("showdown mode ON — runs now reveal the wraith on a find (run `wraith showdown` again to turn off)")
+    else:
+        c.info("showdown mode OFF — wraith runs plain again")
+
+
 def cmd_aces(args) -> None:
     _console(args).aces()
 
@@ -245,20 +289,29 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-banner", action="store_true", help="suppress the ASCII banner")
     sub = p.add_subparsers(dest="command", metavar="<command>")
 
+    def _add_scan_args(sp):
+        sp.add_argument("target", help="hostname, IP or URL")
+        sp.add_argument("-p", "--phases", metavar="LIST", help="comma-separated subset of phases (default: all)")
+        sp.add_argument("-s", "--sessions", metavar="FILE", help="sessions JSON — enables access-control / IDOR")
+        sp.add_argument("-w", "--wordlist", metavar="FILE", help="wordlist for content-discovery")
+        sp.add_argument("-t", "--templates", metavar="DIR", help="extra template-checks directory")
+        sp.add_argument("-x", "--fail-on", metavar="SEV", choices=list(_SEVERITY_BY_NAME),
+                        help="exit 2 on a finding at/above SEV (info|low|medium|high|critical)")
+        sp.add_argument("-c", "--concurrency", metavar="N", type=int, default=8,
+                        help="max phases running in parallel (default: 8)")
+        sp.add_argument("--workdir", metavar="DIR", default="wraith-runs",
+                        help="output directory (default: wraith-runs)")
+
     run = sub.add_parser("run", help="scan a target (default command)", epilog=EXAMPLES,
                          formatter_class=_Help, description="Run the phase pipeline against a target.")
-    run.add_argument("target", help="hostname, IP or URL")
-    run.add_argument("-p", "--phases", metavar="LIST", help="comma-separated subset of phases (default: all)")
-    run.add_argument("-s", "--sessions", metavar="FILE", help="sessions JSON — enables access-control / IDOR")
-    run.add_argument("-w", "--wordlist", metavar="FILE", help="wordlist for content-discovery")
-    run.add_argument("-t", "--templates", metavar="DIR", help="extra template-checks directory")
-    run.add_argument("-x", "--fail-on", metavar="SEV", choices=list(_SEVERITY_BY_NAME),
-                     help="exit 2 on a finding at/above SEV (info|low|medium|high|critical)")
-    run.add_argument("--showdown", action="store_true", help="reveal the wraith and its hand at the end")
-    run.add_argument("-c", "--concurrency", metavar="N", type=int, default=8,
-                     help="max phases running in parallel (default: 8)")
-    run.add_argument("--workdir", metavar="DIR", default="wraith-runs", help="output directory (default: wraith-runs)")
+    _add_scan_args(run)
     run.set_defaults(func=cmd_run)
+
+    sd = sub.add_parser("showdown", help="toggle showdown mode on/off (sticks between runs)",
+                        formatter_class=_Help,
+                        description="Toggle showdown mode. While it's on, every run reveals the "
+                                    "wraith when it catches a vulnerability. Run it again to turn off.")
+    sd.set_defaults(func=cmd_showdown)
 
     ph = sub.add_parser("phases", help="list available phases", formatter_class=_Help)
     ph.set_defaults(func=cmd_phases)

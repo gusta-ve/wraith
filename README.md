@@ -52,8 +52,8 @@ wraith target.com                              # full pipeline (no subcommand ne
 wraith 10.10.10.5 -p resolve,tcp-scan,http-probe   # only these phases
 wraith target.com -s sessions.json             # adds access-control / IDOR
 wraith target.com -x high                      # exit code 2 on a High+ finding
-wraith target.com --showdown                   # reveal the hand it was holding at the end
 wraith --theme matrix target.com               # crimson (default) | matrix | ice | amber | mono
+wraith showdown                                # toggle "showdown mode" on/off — the wraith reveals its hand on a find
 wraith phases                                  # list phases and their dependencies
 ```
 
