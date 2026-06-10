@@ -9,6 +9,7 @@ pipeline of small composable phases. Point it at a target; it resolves hosts,
 scans ports, maps the web surface, tests it and reports what it finds. The core
 has no third-party dependencies.
 
+[![PyPI](https://img.shields.io/pypi/v/wraith-sec?color=crimson&label=pypi)](https://pypi.org/project/wraith-sec/)
 [![CI](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml/badge.svg)](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/gusta-ve/wraith?color=crimson)](https://github.com/gusta-ve/wraith/releases)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
