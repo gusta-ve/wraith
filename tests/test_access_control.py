@@ -31,3 +31,18 @@ def test_ok_rejects_login_and_redirects():
 def test_similar_scores():
     assert AC._similar("hello world", "hello world") == 1.0
     assert AC._similar("abc", "xyz") < 0.5
+
+
+def test_redirect_is_not_a_bypass():
+    # Bounced to their own area / login => denied, not a bypass.
+    assert AC._redirected(Response(200, "http://h/portal", "", {}), "http://h/cofre") is True
+    assert AC._redirected(Response(200, "http://h/cofre", "", {}), "http://h/cofre") is False
+    # Trailing-slash and query differences don't count as a redirect.
+    assert AC._redirected(Response(200, "http://h/cofre?landing=1", "", {}), "http://h/cofre") is False
+
+
+def test_static_assets_are_skipped():
+    assert AC._is_static("http://h/app.css") is True
+    assert AC._is_static("http://h/_framework/blazor.web.js") is True
+    assert AC._is_static("http://h/favicon.svg") is True
+    assert AC._is_static("http://h/financeiro") is False

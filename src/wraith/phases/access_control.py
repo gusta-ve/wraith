@@ -38,6 +38,8 @@ ROLE_RANK = {
 _LINK_RE = re.compile(r'(?:href|src|action)\s*=\s*["\']([^"\']+)', re.I)
 _INT_RE = re.compile(r"(?<!\d)(\d{1,9})(?!\d)")
 _LOGIN_HINTS = ("login", "signin", "sign-in", "auth", "sso")
+_STATIC_EXT = (".css", ".js", ".mjs", ".map", ".svg", ".png", ".jpg", ".jpeg",
+               ".gif", ".ico", ".webp", ".woff", ".woff2", ".ttf", ".eot")
 
 
 @register
@@ -85,7 +87,13 @@ class AccessControlPhase(Phase):
     # ------------------------------------------------------------------ BAC
     async def _test_vertical_bac(self, ws, console, sessions, priv, rank, priv_map) -> None:
         for url, rp in priv_map.items():
-            if not self._ok(rp):
+            if not self._ok(rp) or self._is_static(url):
+                continue
+            # A resource a no-cookie request can already read is public, not a
+            # bypass — verify this ourselves even when no anon session was given.
+            anon = await fetch(url, None, None)
+            if (anon is not None and self._ok(anon) and not self._redirected(anon, url)
+                    and self._similar(anon.text, rp.text) >= self.SIMILAR):
                 continue
             public = False
             bypassers = []
@@ -94,6 +102,12 @@ class AccessControlPhase(Phase):
                     continue
                 rs = await fetch(url, s.cookies, s.headers)
                 if rs is None or not self._ok(rs):
+                    continue
+                # If the server sent them somewhere else (login, their own area),
+                # they were *denied* — a redirect is access control working, not a
+                # bypass. Single-page apps serve a near-identical shell on every
+                # route, so without this the shells read as a false bypass.
+                if self._redirected(rs, url):
                     continue
                 if self._similar(rs.text, rp.text) >= self.SIMILAR:
                     if rank(s) == 0:
@@ -126,7 +140,7 @@ class AccessControlPhase(Phase):
         for name, dmap in discovered.items():
             s = by_name[name]
             for url, r in dmap.items():
-                if not self._ok(r) or not self._INT_RE_search(url):
+                if not self._ok(r) or self._is_static(url) or not self._INT_RE_search(url):
                     continue
                 path = urlsplit(url).path
                 if (name, path) in flagged:
@@ -211,6 +225,19 @@ class AccessControlPhase(Phase):
         if 'type="password"' in resp.text.lower():
             return False
         return True
+
+    @staticmethod
+    def _redirected(resp, requested_url) -> bool:
+        # True if the response settled on a different path than asked for —
+        # i.e. the server bounced the principal somewhere else.
+        return urlsplit(resp.url).path.rstrip("/") != urlsplit(requested_url).path.rstrip("/")
+
+    @staticmethod
+    def _is_static(url) -> bool:
+        # Static assets (css/js/images/fonts, framework files) are public by
+        # design — never an access-control finding.
+        p = urlsplit(url).path.lower()
+        return p.endswith(_STATIC_EXT) or p.startswith(("/_framework", "/_content"))
 
     @staticmethod
     def _INT_RE_search(url) -> bool:

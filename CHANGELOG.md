@@ -3,6 +3,20 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- `wraith login` now reads the login form on the page: it submits to the form's
+  real `action` and carries every hidden field, so anti-CSRF tokens (ASP.NET
+  `__RequestVerificationToken`, Django `csrfmiddlewaretoken`, Rails
+  `authenticity_token`...) ride along and the login actually succeeds.
+
+### Fixed
+- `access-control` no longer reports false bypasses against single-page apps: a
+  lower principal redirected away (to login or its own area) is treated as
+  denied, static assets and framework files are excluded, and a resource a
+  no-cookie request can already read is suppressed as public.
+
 ## [0.3.1] - 2026-06-10
 
 ### Fixed
