@@ -3,6 +3,22 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- `run` is the default command (`wraith TARGET`, no subcommand needed), short
+  flags (`-p -s -w -t -x -c -l`) and a `--help` with copy-paste examples.
+- End-of-run vulnerability report — a clean, severity-coloured, deduplicated
+  list of everything exploitable (Low and up); Info noise stays in the files.
+- `wraith showdown` — a toggleable mode (off by default, sticks between runs)
+  that plays a run's catch out: findings called out live, the hooded spectre
+  revealed, the kill-chain retold, each finding shown with its evidence, and a
+  poker verdict on the target. Flagged in the banner while on.
+
+### Fixed
+- `access-control` reports one finding per bypassed resource (was one per
+  session), so counts and the report no longer double up.
+
 ## [0.2.0] - 2026-06-09
 
 ### Added
