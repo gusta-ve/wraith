@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.1] - 2026-06-10
+
+### Fixed
+- `http-probe` now probes the original hostname instead of the resolved IP, so
+  SNI / virtual-hosted sites respond (raw-IP probing fails TLS on modern hosts);
+  the IPv4/IPv6 pair of a service collapses to one probe.
+- `content-discovery` no longer reports blanket redirects (e.g. HTTP→HTTPS) as
+  discovered paths — if a random path is redirected too, it's not a hit.
+- `vhost` baselines against a host that can't exist and drops candidates that
+  match it, so catch-all servers stop inventing virtual hosts.
+
 ## [0.3.0] - 2026-06-10
 
 ### Added
