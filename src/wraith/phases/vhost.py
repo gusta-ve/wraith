@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import difflib
+import random
 import socket
+import string
 from urllib.parse import urlsplit
 
 from wraith.core.http import fetch
@@ -69,6 +71,12 @@ class VhostPhase(Phase):
         if baseline is None:
             console.warn(f"{base}: no baseline response")
             return
+        # Learn what an *unknown* host looks like: a random name that can't exist.
+        # Many servers/CDNs answer every Host the same way (a catch-all). If a
+        # candidate looks just like this junk host, it isn't a real vhost.
+        rnd = "".join(random.choice(string.ascii_lowercase) for _ in range(12))
+        junk = rnd if _is_ip(target) else f"{rnd}.{target}"
+        negative = await fetch(base, headers={"Host": junk}, allow_redirects=False)
         sem = asyncio.Semaphore(self.CONCURRENCY)
 
         async def probe(vhost: str) -> None:
@@ -76,6 +84,8 @@ class VhostPhase(Phase):
                 r = await fetch(base, headers={"Host": vhost}, allow_redirects=False)
                 if r is None or not self._distinct(r, baseline):
                     return
+                if negative is not None and self._same(r, negative):
+                    return  # catch-all: same as a host that can't exist
                 console.good(f"vhost  {vhost}  ({r.status}, {len(r.text)}b)")
                 ws.add_finding(
                     title=f"Virtual host responds differently: {vhost}",
@@ -97,3 +107,10 @@ class VhostPhase(Phase):
             return True
         ratio = difflib.SequenceMatcher(None, resp.text[:3000], baseline.text[:3000]).ratio()
         return ratio < 0.85
+
+    @staticmethod
+    def _same(resp, other) -> bool:
+        if resp.status != other.status:
+            return False
+        ratio = difflib.SequenceMatcher(None, resp.text[:3000], other.text[:3000]).ratio()
+        return ratio >= 0.95

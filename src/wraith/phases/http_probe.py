@@ -28,7 +28,21 @@ class HttpProbePhase(Phase):
     description = "Probe HTTP(S) services for status, server and title."
 
     async def run(self, ws, console) -> None:
-        targets = [(s.host, s.port, HTTP_PORTS[s.port]) for s in ws.services if s.port in HTTP_PORTS]
+        # tcp-scan finds services keyed by IP, but real sites virtual-host on a
+        # name (SNI + Host header). If we know the original hostname, probe by
+        # that instead — probing the raw IP fails TLS on every modern host. This
+        # also dedupes the IPv4/IPv6 pair of the same service down to one probe.
+        hostname = next((h.value for h in ws.hosts if h.kind == "hostname"), None)
+        targets, seen = [], set()
+        for s in ws.services:
+            if s.port not in HTTP_PORTS:
+                continue
+            host = hostname or s.host
+            key = (host, s.port)
+            if key in seen:
+                continue
+            seen.add(key)
+            targets.append((host, s.port, HTTP_PORTS[s.port]))
         if not targets:
             console.warn("no HTTP(S) services found")
             return

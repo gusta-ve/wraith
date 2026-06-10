@@ -91,9 +91,13 @@ class ContentDiscoveryPhase(Phase):
                 r = await fetch(url, allow_redirects=False)
                 if r is None or r.status not in INTERESTING:
                     return
-                if (r.status == 200 and baseline and baseline.status == 200
-                        and self._similar(r.text, baseline.text) >= 0.9):
-                    return  # wildcard / soft-404
+                if baseline and r.status == baseline.status:
+                    # The site answers a random, non-existent path the same way,
+                    # so this status is its "nothing here" response, not a hit.
+                    if r.status in (301, 302, 307, 308):
+                        return  # blanket redirect (e.g. HTTP->HTTPS) — real content is past it
+                    if self._similar(r.text, baseline.text) >= 0.9:
+                        return  # wildcard / soft-404
                 ws.add_endpoint(url, "GET", r.status, server=r.headers.get("server", ""))
                 console.good(f"{r.status}  {url}")
                 if r.status in (200, 401, 403) and any(s in word.lower() for s in SENSITIVE):
