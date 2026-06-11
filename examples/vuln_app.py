@@ -7,7 +7,12 @@ Planted issues (and the phase that finds each):
   /admin                  logged-in but no role check     -> access-control (BAC)
   /account/orders/<id>    no ownership check on id         -> access-control (IDOR)
   /search?q=              reflects q unescaped             -> injection (XSS)
-  /product?id=            quote triggers a SQL error       -> injection (SQLi)
+  /product?id=            quote triggers a SQL error       -> injection (SQLi error-based)
+  /items?id=              FALSE condition empties the page -> injection (SQLi boolean-blind)
+  /lookup?token=          honours an injected SQL sleep    -> injection (SQLi time-blind)
+  /ping?host=             shell metachars run (sleep)      -> injection (command injection)
+  /render?name=           evaluates {{a*b}} server-side    -> injection (SSTI)
+  /download?file=         ../../etc/passwd traversal       -> injection (path traversal/LFI)
   /go?url=                redirects to user input          -> injection (open redirect)
   /api/data              reflects Origin + credentials     -> security-headers (CORS)
   (no CSP/XFO/HSTS, insecure cookie on /)                  -> security-headers
@@ -15,11 +20,31 @@ Control (must NOT be flagged):
   /admin-secure           proper admin role enforcement
 """
 
+import html
 import os
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import re
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
 PORT = int(os.environ.get("PORT", "8080"))
+
+
+def _sql_sleep(raw: str) -> None:
+    """Simulate a blind SQLi sink: honour an injected SLEEP/pg_sleep/WAITFOR so
+    the response time leaks the truth even when the output never changes."""
+    m = re.search(r"(?:sleep|pg_sleep)\((\d+)\)|WAITFOR DELAY '0:0:(\d+)'", raw, re.I)
+    if m:
+        time.sleep(min(int(m.group(1) or m.group(2)), 10))
+
+
+def _render_template(s: str) -> str:
+    """Simulate a template engine that evaluates `a*b` (the SSTI sink)."""
+    mul = lambda m: str(int(m.group(1)) * int(m.group(2)))
+    for pat in (r"\{\{\s*(\d+)\s*\*\s*(\d+)\s*\}\}", r"\$\{\s*(\d+)\s*\*\s*(\d+)\s*\}",
+                r"<%=\s*(\d+)\s*\*\s*(\d+)\s*%>", r"#\{\s*(\d+)\s*\*\s*(\d+)\s*\}"):
+        s = re.sub(pat, mul, s)
+    return s
 
 USERS = {"admin-token": ("admin", "admin"), "alice-token": ("alice", "user"), "bob-token": ("bob", "user")}
 ORDERS = {1: ("alice", "Keyboard — $80"), 2: ("bob", "Monitor — $300"), 3: ("admin", "Server rack — $5000")}
@@ -78,6 +103,11 @@ class Handler(BaseHTTPRequestHandler):
                 '<a href="/admin-secure">Admin (secure)</a> '
                 '<a href="/search?q=test">Search</a> '
                 '<a href="/product?id=1">Product</a> '
+                '<a href="/items?id=1">Items</a> '
+                '<a href="/lookup?token=abc">Lookup</a> '
+                '<a href="/ping?host=127.0.0.1">Ping</a> '
+                '<a href="/render?name=guest">Greet</a> '
+                '<a href="/download?file=readme.txt">Download</a> '
                 '<a href="/go?url=/account">Go</a> '
                 '<a href="/login">Login</a>'
             ), extra={"Set-Cookie": "tracking=1; Path=/"})
@@ -97,12 +127,52 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/product":
             pid = (query.get("id") or [""])[0]
-            # VULNERABLE: simulates an error-based SQL injection.
-            if "'" in pid or '"' in pid:
+            # VULNERABLE: error-based SQLi — only an *unbalanced* quote breaks the
+            # query (a balanced one parses fine), exactly like a real string sink.
+            if pid.count("'") % 2 or pid.count('"') % 2:
                 return self._send(500, page(
                     "<h1>Error</h1><pre>You have an error in your SQL syntax; check the manual "
                     "near \"'\" at line 1</pre>"))
             return self._send(200, page(f"<h1>Product {pid}</h1><p>A fine product.</p>"))
+
+        if path == "/items":
+            # VULNERABLE: boolean-blind SQLi — a FALSE condition empties the list.
+            raw = (query.get("id") or ["1"])[0]
+            _sql_sleep(raw)
+            if re.search(r"'1'\s*=\s*'2|\"1\"\s*=\s*\"2|\b1\s*=\s*2\b", raw):
+                return self._send(200, page("<h1>Items</h1><p>No items found.</p>"))
+            return self._send(200, page("<h1>Items</h1><ul><li>Widget — $9.99</li>"
+                                        "<li>Gadget — $19.99</li></ul>"))
+
+        if path == "/lookup":
+            # VULNERABLE: time-blind SQLi — output is constant, only timing leaks.
+            _sql_sleep((query.get("token") or ["abc"])[0])
+            return self._send(200, page("<h1>Lookup</h1><p>Token processed.</p>"))
+
+        if path == "/ping":
+            # VULNERABLE: command injection — shell metacharacters execute.
+            raw = (query.get("host") or ["127.0.0.1"])[0]
+            m = re.search(r"sleep\s+(\d+)", raw)
+            if m:
+                time.sleep(min(int(m.group(1)), 10))
+            return self._send(200, page(f"<h1>Ping</h1><pre>PING {html.escape(raw)}</pre>"))
+
+        if path == "/render":
+            # VULNERABLE: SSTI — the name is rendered through a template engine.
+            name = (query.get("name") or ["guest"])[0]
+            return self._send(200, page(f"<h1>Welcome {html.escape(_render_template(name))}</h1>"))
+
+        if path == "/download":
+            # VULNERABLE: path traversal / LFI — the path isn't constrained.
+            f = (query.get("file") or ["readme.txt"])[0]
+            low = f.replace("\\", "/").lower()
+            if "etc/passwd" in low:
+                return self._send(200, (b"root:x:0:0:root:/root:/bin/bash\n"
+                                        b"daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\n"
+                                        b"www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\n"))
+            if "win.ini" in low:
+                return self._send(200, b"[fonts]\r\n[extensions]\r\n[mci extensions]\r\n")
+            return self._send(200, page(f"<h1>{html.escape(f)}</h1><pre>(file contents)</pre>"))
 
         if path == "/go":
             # VULNERABLE: open redirect.
@@ -156,4 +226,5 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"vuln_app listening on http://127.0.0.1:{PORT}")
-    HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    # Threaded so concurrent time-based probes don't queue behind each other.
+    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

@@ -3,6 +3,30 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] - 2026-06-11
+
+### Added
+- `injection` is now a real active-testing engine with two-step confirmation —
+  every hit is proven a second way before it's reported:
+  - **SQLi (boolean-blind)** — a TRUE condition returns the normal page while a
+    FALSE one diverges, confirmed across two injection contexts.
+  - **SQLi (time-blind)** — a SLEEP/pg_sleep/WAITFOR payload delays the
+    response, confirmed by a second, longer sleep whose delay tracks the time
+    injected (rules out network lag).
+  - **Command injection** — a `; sleep N` payload delays the response (same
+    time-correlation proof); reported Critical.
+  - **SSTI** — `{{a*b}}` comes back evaluated (the product, not the
+    expression), confirmed with a second random product.
+  - **Path traversal / LFI** — `../../etc/passwd` returns a `root:x:0:0:`
+    signature absent from the baseline, read twice to confirm.
+  - Error-based SQLi now confirms with a *balanced* quote (which must not
+    error), so an unrelated 500 can't pass for injection.
+- `-v` / `--verbose` — phases narrate the attack: every payload, its oracle
+  measurement (similarity ratios, response timings) and the confirmation step.
+- `examples/vuln_app.py` gained boolean/time-blind SQLi, command injection,
+  SSTI and LFI endpoints (and is now threaded so concurrent timing probes don't
+  queue), exercising every new technique.
+
 ## [0.3.3] - 2026-06-10
 
 ### Changed

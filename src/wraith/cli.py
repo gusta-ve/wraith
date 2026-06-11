@@ -73,6 +73,7 @@ def _console(args) -> Console:
         theme=getattr(args, "theme", None),
         color=False if getattr(args, "no_color", False) else None,
         banner=not getattr(args, "no_banner", False),
+        verbose=getattr(args, "verbose", False),
     )
     if _load_config().get("showdown"):       # mode on -> wire it to the console
         c.showdown = Showdown(c)
@@ -349,6 +350,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="max phases running in parallel (default: 8)")
         sp.add_argument("--workdir", metavar="DIR", default="wraith-runs",
                         help="output directory (default: wraith-runs)")
+        sp.add_argument("-v", "--verbose", action="store_true",
+                        help="narrate the attack: every payload, oracle measurement and confirmation")
 
     run = sub.add_parser("run", help="scan a target (default command)", epilog=EXAMPLES,
                          formatter_class=_Help, description="Run the phase pipeline against a target.")

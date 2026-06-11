@@ -69,6 +69,7 @@ ln -sf ~/.local/share/wraith-venv/bin/wraith ~/.local/bin/wraith
 wraith target.com                              # full pipeline (no subcommand needed)
 wraith 10.10.10.5 -p resolve,tcp-scan,http-probe   # only these phases
 wraith target.com -s sessions.json             # adds access-control / IDOR
+wraith target.com -v                           # narrate the attack (payloads, oracles, confirmations)
 wraith target.com -x high                      # exit code 2 on a High+ finding
 wraith --theme matrix target.com               # crimson (default) | matrix | ice | amber | mono
 wraith showdown                                # toggle "showdown mode" — wraith plays the catch out (reveal + verdict)
@@ -107,16 +108,34 @@ tech-detect        server / language / framework / CMS fingerprint
 vhost              virtual-host discovery via Host-header fuzzing
 template-checks    declarative JSON/YAML checks (nuclei-style)
 security-headers   security headers, cookie flags and CORS
-injection          reflected XSS, error-based SQLi, open redirect
+injection          XSS, SQLi (error/boolean/time), command injection, SSTI, LFI, open redirect
 access-control     Broken Access Control and IDOR (needs sessions)
 ```
 
 ## Web testing
 
 `injection` crawls the target, pulls parameters from query strings and forms,
-and tests each: reflected XSS needs a raw `<`/`>`/`"` payload to come back
-unencoded, SQLi needs a single quote to raise a database error the baseline
-didn't, and open redirect needs a redirect param to land in `Location`.
+and probes each with a battery of techniques. Every technique has a single,
+explainable oracle — and **every hit is confirmed a second way before it's
+reported**, so a finding is evidence, not a guess:
+
+| Technique | Oracle | Confirmed by |
+|---|---|---|
+| Reflected XSS | a raw `<`/`>`/`"` marker reflects unencoded | — |
+| SQLi (error-based) | a single quote raises a DB error | a *balanced* quote clears it |
+| SQLi (boolean-blind) | a TRUE condition page matches normal, FALSE diverges | a second, different injection context |
+| SQLi (time-blind) | `SLEEP`/`pg_sleep`/`WAITFOR` delays the response | a longer sleep delays proportionally more |
+| Command injection | `; sleep N` delays the response | same time-correlation proof |
+| SSTI | `{{a*b}}` comes back evaluated (the product) | a second random product |
+| Path traversal / LFI | `../../etc/passwd` returns a `root:x:0:0:` signature | read twice |
+| Open redirect | a redirect param lands in `Location` | — |
+
+Run with `-v` / `--verbose` to watch each payload, its oracle measurement
+(similarity ratios, response timings) and the confirmation step live:
+
+```bash
+wraith target.com -p injection -v
+```
 
 `security-headers` reports missing CSP/HSTS/X-Frame-Options/nosniff, weak cookie
 flags and CORS that reflects an arbitrary origin.
@@ -167,12 +186,13 @@ class MyPhase(Phase):
 ## Lab
 
 `examples/vuln_app.py` is a deliberately vulnerable app to practise against and
-to exercise every web phase (BAC, IDOR, XSS, SQLi, open redirect, CORS, insecure
-cookies, missing headers):
+to exercise every web phase: BAC, IDOR, reflected XSS, SQLi (error/boolean/time),
+command injection, SSTI, path traversal/LFI, open redirect, CORS, insecure
+cookies and missing headers.
 
 ```bash
 python3 examples/vuln_app.py &
-wraith 127.0.0.1 -s examples/sessions.json
+wraith 127.0.0.1 -s examples/sessions.json -v
 ```
 
 ## Tests

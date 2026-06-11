@@ -72,11 +72,12 @@ def _lerp(a, b, t):
 class Console:
     _ABBR = {"Critical": "CRIT", "High": "HIGH", "Medium": "MED", "Low": "LOW", "Info": "INFO"}
 
-    def __init__(self, theme=None, color=None, banner=True):
+    def __init__(self, theme=None, color=None, banner=True, verbose=False):
         name = theme or os.environ.get("WRAITH_THEME") or DEFAULT_THEME
         self.theme = THEMES.get(name, THEMES[DEFAULT_THEME])
         self.color = _supports_color(color)
         self.show_banner = banner
+        self.verbose = verbose  # -v: phases narrate the attack (payloads, oracles, confirmations)
         self.showdown = None  # a Showdown (see core/showdown.py) when the mode is on, else None
 
     # All printing goes through here so subclasses can buffer it.
@@ -194,6 +195,11 @@ class Console:
     def plain(self, msg: str = "") -> None:
         self._emit(msg)
 
+    def trace(self, msg) -> None:
+        """Verbose-only play-by-play — the attack as it happens. Silent without -v."""
+        if self.verbose:
+            self._emit(self._c(DIM, "      · ") + str(msg))
+
     def finding(self, severity_label: str, msg) -> None:
         if self.showdown is not None:        # showdown mode dresses each catch up
             self.showdown.live_finding(self, severity_label, str(msg))
@@ -253,6 +259,7 @@ class BufferedConsole(Console):
         self.theme = parent.theme
         self.color = parent.color
         self.show_banner = parent.show_banner
+        self.verbose = parent.verbose
         self.showdown = parent.showdown   # so per-phase findings get the live treatment
         self._parent = parent
         self._lines: list[str] = []
