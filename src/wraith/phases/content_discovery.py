@@ -89,6 +89,7 @@ class ContentDiscoveryPhase(Phase):
         async def probe(word: str) -> None:
             async with sem:
                 url = f"{base}/{word}"
+                console.trace(f"→ GET {url}", level=2)
                 r = await fetch(url, allow_redirects=False)
                 if r is None or r.status not in INTERESTING:
                     return

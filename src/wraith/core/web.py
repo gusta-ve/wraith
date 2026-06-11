@@ -96,13 +96,14 @@ def build_points(url: str, html: str) -> list:
 
 
 async def crawl(seeds: list, host: str, fetch, max_pages: int = 25,
-                cookies=None, headers=None, timeout: float = 8.0) -> dict:
+                cookies=None, headers=None, timeout: float = 8.0, on_fetch=None) -> dict:
     """Breadth-first, same-host crawl returning {url: Response}.
 
     Bounded by max_pages so a big site can't make a run drag on forever; we
     only follow links out of HTML 2xx pages (an error or a binary download has
     nothing worth queueing). Pass cookies/headers to crawl as a logged-in user;
     ``timeout`` caps each request so a stalling host can't drag the crawl out.
+    ``on_fetch(url, n, total)`` is called before each request for live progress.
     """
     seen: set = set()
     out: dict = {}
@@ -112,6 +113,8 @@ async def crawl(seeds: list, host: str, fetch, max_pages: int = 25,
         if url in seen:
             continue
         seen.add(url)
+        if on_fetch is not None:
+            on_fetch(url, len(out) + 1, max_pages)
         r = await fetch(url, cookies=cookies, headers=headers, timeout=timeout)
         if r is None:
             continue

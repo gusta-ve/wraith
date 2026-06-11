@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.3] - 2026-06-11
+
+### Changed
+- The crawl and `content-discovery` now report progress under `-v`, so a slow
+  target no longer looks frozen during them: `-v` brackets the crawl
+  (`crawling… / crawl done: N pages`) and `-v 2` prints each request
+  (`crawl [n/total] → GET …`, and every path probed).
+
 ## [0.4.2] - 2026-06-11
 
 ### Added

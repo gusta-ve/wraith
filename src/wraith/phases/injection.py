@@ -207,7 +207,13 @@ class InjectionPhase(Phase):
         for base in self._bases(ws):
             host = urlsplit(base).netloc
             seeds = [base + "/"] + [e.url for e in ws.endpoints if e.url.startswith(base)]
-            pages = await web.crawl(seeds, host, fetch, self.MAX_PAGES, timeout=self.REQ_TIMEOUT)
+            console.trace(f"crawling {base} for injectable parameters (up to {self.MAX_PAGES} pages)…",
+                          level=1)
+            pages = await web.crawl(
+                seeds, host, fetch, self.MAX_PAGES, timeout=self.REQ_TIMEOUT,
+                on_fetch=lambda u, n, t: console.trace(f"crawl [{n}/{t}] → GET {u}", level=2),
+            )
+            console.trace(f"crawl done: {len(pages)} page(s)", level=1)
 
             points, seen = [], set()
             for url, resp in pages.items():
