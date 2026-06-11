@@ -149,6 +149,7 @@ class InjectionPhase(Phase):
     SLEEP_CONFIRM = 6       # confirmation sleep — must delay proportionally more
 
     async def run(self, ws, console) -> None:
+        self._console = console          # so _send can log HTTP at -v 2/3
         for base in self._bases(ws):
             host = urlsplit(base).netloc
             seeds = [base + "/"] + [e.url for e in ws.endpoints if e.url.startswith(base)]
@@ -182,14 +183,22 @@ class InjectionPhase(Phase):
                     await self._test_time_based(ws, console, pt, skip_sql=sqli)
 
     # ----------------------------------------------------------- transport
+    _console = None
+
     async def _send(self, pt, value, timeout=8.0):
         values = dict(pt.values)
         values[pt.param] = value
+        if self._console is not None:
+            self._console.trace(f"→ {pt.method} {pt.action}  [{pt.param}={value!r}]", level=2)
         if pt.location == "query":
-            return await fetch(f"{pt.action}?{urlencode(values)}", method="GET",
-                               allow_redirects=False, timeout=timeout)
-        return await fetch(pt.action, method="POST", data=values,
-                           allow_redirects=False, timeout=timeout)
+            r = await fetch(f"{pt.action}?{urlencode(values)}", method="GET",
+                            allow_redirects=False, timeout=timeout)
+        else:
+            r = await fetch(pt.action, method="POST", data=values,
+                            allow_redirects=False, timeout=timeout)
+        if self._console is not None and r is not None:
+            self._console.trace(f"← {r.status}  {len(r.text)} bytes", level=3)
+        return r
 
     async def _timed_send(self, pt, value, timeout):
         t0 = time.monotonic()

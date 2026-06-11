@@ -60,6 +60,7 @@ class TcpScanPhase(Phase):
 
         extra = [p for p in ws.meta.get("extra_ports", []) if p not in COMMON_PORTS]
         ports = COMMON_PORTS + extra
+        console.trace(f"scanning {len(ports)} port(s) across {len(ips)} host(s)", level=1)
         tasks = [probe(ip, port) for ip in ips for port in ports]
         for coro in asyncio.as_completed(tasks):
             res = await coro

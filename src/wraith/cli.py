@@ -378,8 +378,9 @@ def _scan_options() -> argparse.ArgumentParser:
                    help="max phases running in parallel (default: 8)")
     g.add_argument("--workdir", metavar="DIR", default="wraith-runs",
                    help="output directory (default: wraith-runs)")
-    g.add_argument("-v", "--verbose", action="store_true",
-                   help="narrate the attack: every payload, oracle measurement and confirmation")
+    g.add_argument("-v", "--verbose", nargs="?", const=1, type=int, default=0, metavar="LEVEL",
+                   help="verbosity — 1 narrate the attack · 2 + every HTTP request · 3 + responses "
+                        "(bare -v = 1)")
     return sp
 
 

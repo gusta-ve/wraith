@@ -83,6 +83,7 @@ class ContentDiscoveryPhase(Phase):
         # returns a 200 that looks just like it, it's a soft-404, not a hit.
         rnd = "".join(random.choice(string.ascii_lowercase) for _ in range(12))
         baseline = await fetch(f"{base}/{rnd}", allow_redirects=False)
+        console.trace(f"trying {len(words)} path(s) against {base}", level=1)
         sem = asyncio.Semaphore(self.CONCURRENCY)
 
         async def probe(word: str) -> None:

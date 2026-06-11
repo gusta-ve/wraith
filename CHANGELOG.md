@@ -15,6 +15,11 @@ based on [Keep a Changelog](https://keepachangelog.com/).
 - Cosmetic flags (`--theme`, `--no-color`, `--no-banner`) work in any position,
   including after the target.
 
+- `-v` is now levelled like other scanners: `-v` / `-v 1` narrates the attack,
+  `-v 2` adds every HTTP request, `-v 3` adds the responses. Progress lines were
+  added to the longer phases so `-v` shows activity on any scan, not only when
+  injection finds parameters.
+
 ### Fixed
 - Ctrl-C during a scan now exits cleanly (`[-] interrupted`, status 130) instead
   of dumping an asyncio `KeyboardInterrupt` traceback.

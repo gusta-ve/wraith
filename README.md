@@ -70,7 +70,7 @@ wraith target.com                              # full pipeline (no subcommand ne
 wraith -u https://target.com:8443              # target as a URL (-u/--url); the port is scanned too
 wraith 10.10.10.5 -p resolve,tcp-scan,http-probe   # only these phases
 wraith target.com -s sessions.json             # adds access-control / IDOR
-wraith target.com -v                           # narrate the attack (payloads, oracles, confirmations)
+wraith target.com -v                           # narrate the attack; -v 2 adds HTTP requests, -v 3 responses
 wraith target.com -x high                      # exit code 2 on a High+ finding
 wraith --theme matrix target.com               # crimson (default) | matrix | ice | amber | mono
 wraith showdown                                # toggle "showdown mode" — wraith plays the catch out (reveal + verdict)
@@ -131,11 +131,13 @@ reported**, so a finding is evidence, not a guess:
 | Path traversal / LFI | `../../etc/passwd` returns a `root:x:0:0:` signature | read twice |
 | Open redirect | a redirect param lands in `Location` | — |
 
-Run with `-v` / `--verbose` to watch each payload, its oracle measurement
-(similarity ratios, response timings) and the confirmation step live:
+Run with `-v` to watch each payload, its oracle measurement (similarity ratios,
+response timings) and the confirmation step live. Verbosity is levelled like
+other scanners — `-v 2` also prints every HTTP request, `-v 3` the responses:
 
 ```bash
-wraith target.com -p injection -v
+wraith target.com -p injection -v      # bare -v = level 1 (the attack play-by-play)
+wraith target.com -p injection -v 2    # + every HTTP request
 ```
 
 `security-headers` reports missing CSP/HSTS/X-Frame-Options/nosniff, weak cookie

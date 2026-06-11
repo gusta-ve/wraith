@@ -72,12 +72,13 @@ def _lerp(a, b, t):
 class Console:
     _ABBR = {"Critical": "CRIT", "High": "HIGH", "Medium": "MED", "Low": "LOW", "Info": "INFO"}
 
-    def __init__(self, theme=None, color=None, banner=True, verbose=False):
+    def __init__(self, theme=None, color=None, banner=True, verbose=0):
         name = theme or os.environ.get("WRAITH_THEME") or DEFAULT_THEME
         self.theme = THEMES.get(name, THEMES[DEFAULT_THEME])
         self.color = _supports_color(color)
         self.show_banner = banner
-        self.verbose = verbose  # -v: phases narrate the attack (payloads, oracles, confirmations)
+        # -v level: 1 attack play-by-play · 2 + HTTP requests · 3 + responses
+        self.verbose = int(verbose or 0)
         self.showdown = None  # a Showdown (see core/showdown.py) when the mode is on, else None
 
     # All printing goes through here so subclasses can buffer it.
@@ -195,9 +196,10 @@ class Console:
     def plain(self, msg: str = "") -> None:
         self._emit(msg)
 
-    def trace(self, msg) -> None:
-        """Verbose-only play-by-play — the attack as it happens. Silent without -v."""
-        if self.verbose:
+    def trace(self, msg, level: int = 1) -> None:
+        """Verbose play-by-play. Emits only when -v is at or above `level`
+        (1 progress · 2 attack detail · 3 raw HTTP)."""
+        if self.verbose >= level:
             self._emit(self._c(DIM, "      · ") + str(msg))
 
     def finding(self, severity_label: str, msg) -> None:
