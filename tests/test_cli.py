@@ -1,4 +1,12 @@
-from wraith.cli import _is_foothold, _normalize_target, _with_default_command
+from wraith.cli import _is_foothold, _normalize_target, _runs_dir, _with_default_command
+
+
+def test_runs_dir_honours_env_then_xdg(monkeypatch, tmp_path):
+    monkeypatch.setenv("WRAITH_RUNS", str(tmp_path / "mine"))
+    assert _runs_dir() == str(tmp_path / "mine")            # explicit override wins
+    monkeypatch.delenv("WRAITH_RUNS", raising=False)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    assert _runs_dir() == str(tmp_path / "xdg" / "wraith" / "runs")
 
 
 def test_is_foothold_flags_code_execution():

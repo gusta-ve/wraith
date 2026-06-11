@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.0] - 2026-06-11
+
+### Changed
+- Runs are written to a fixed per-user directory by default —
+  `~/.local/share/wraith/runs/` (XDG) instead of `./wraith-runs/` in the current
+  directory — so hickok finds them from anywhere. Set `WRAITH_RUNS` to move it
+  (both tools honour it), or `--workdir` for a one-off.
+
 ## [0.5.3] - 2026-06-11
 
 ### Fixed

@@ -78,10 +78,13 @@ wraith showdown                                # toggle "showdown mode" — wrai
 wraith phases                                  # list phases and their dependencies
 ```
 
-A run writes a self-contained directory:
+A run writes a self-contained directory under a fixed per-user location —
+`~/.local/share/wraith/runs/` by default (set `WRAITH_RUNS` to move it, or
+`--workdir` per run) — so [hickok](https://github.com/gusta-ve/hickok) finds it
+from anywhere:
 
 ```
-wraith-runs/target.com-<ts>/
+~/.local/share/wraith/runs/target.com-<ts>/
   workspace.json   every host, service, endpoint and finding (resumable)
   report.md
   report.html      dark, self-contained
@@ -164,8 +167,8 @@ wraith finds and proves the way in; landing a shell and working the box is
 reads a wraith run and acts on it:
 
 ```bash
-hickok hand wraith-runs/<run>/findings.json   # flags the code-exec footholds
-hickok -l 9001                                # catch the reverse shell
+hickok hand          # picks up wraith's latest run on its own, flags the footholds
+hickok -l 9001       # catch the reverse shell
 ```
 
 wraith holds the aces, hickok brings the eights — aces and eights, the dead

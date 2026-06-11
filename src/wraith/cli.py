@@ -49,6 +49,17 @@ class _Help(argparse.RawDescriptionHelpFormatter):
         super().__init__(prog, max_help_position=30, width=86)
 
 
+def _runs_dir() -> str:
+    """Default location for run output — a fixed per-user data dir (XDG), shared
+    with hickok so it finds runs from any working directory. Override globally
+    with WRAITH_RUNS, or per-run with --workdir."""
+    env = os.environ.get("WRAITH_RUNS")
+    if env:
+        return os.path.expanduser(env)
+    base = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    return os.path.join(base, "wraith", "runs")
+
+
 def _normalize_target(raw):
     """Accept a bare host/IP or a full URL and return (host, explicit_port|None),
     so `-u https://site:8443/path` scans the host `site` (and pins port 8443)."""
@@ -374,8 +385,8 @@ def _scan_options() -> argparse.ArgumentParser:
                    help="exit 2 on a finding at/above SEV (info|low|medium|high|critical)")
     g.add_argument("-c", "--concurrency", metavar="N", type=int, default=8,
                    help="max phases running in parallel (default: 8)")
-    g.add_argument("--workdir", metavar="DIR", default="wraith-runs",
-                   help="output directory (default: wraith-runs)")
+    g.add_argument("--workdir", metavar="DIR", default=_runs_dir(),
+                   help="output directory (default: ~/.local/share/wraith/runs, or $WRAITH_RUNS)")
     g.add_argument("-v", "--verbose", nargs="?", const=1, type=int, default=0, metavar="LEVEL",
                    help="verbosity — 1 progress · 2 attack detail (payloads & requests) · "
                         "3 + responses (bare -v = 1)")
