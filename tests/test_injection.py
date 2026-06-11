@@ -5,11 +5,32 @@ from wraith.phases.injection import (
     looks_like_sql_error,
     lfi_signature,
     ssti_evaluated,
+    sqli_quote_break,
     ssti_payloads,
     timing_confirms,
     timing_hit,
     timing_too_noisy,
 )
+
+
+def test_sql_error_detection_covers_mssql_and_dotnet():
+    assert looks_like_sql_error("Incorrect syntax near ''.") is True
+    assert looks_like_sql_error("System.Data.SqlClient.SqlException: ...") is True
+    assert looks_like_sql_error("Conversion failed when converting the varchar value") is True
+
+
+def test_sqli_quote_break_detects_swallowed_error():
+    full = "<html>" + "x" * 4000 + "</html>"
+    blank = ""
+    # quote breaks the page to blank; a valid continuation restores it -> SQLi
+    assert sqli_quote_break(full, blank, [blank, full]) is True   # numeric restore works
+    assert sqli_quote_break(full, blank, [full]) is True          # string restore works
+    # reflective param: broken barely differs from base -> not a break
+    assert sqli_quote_break(full + "1", full + "1'", [full + "1''"]) is False
+    # broke but NOTHING restored it -> not the quote's doing
+    assert sqli_quote_break(full, blank, [blank, blank, blank]) is False
+    # no baseline -> can't judge
+    assert sqli_quote_break("", "", [""]) is False
 
 
 def test_timing_too_noisy_guards_jittery_targets():

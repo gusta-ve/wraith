@@ -42,10 +42,17 @@ from wraith.core.phase import Phase, register
 # --------------------------------------------------------------- signatures
 _SQL_ERRORS = re.compile(
     r"(you have an error in your sql syntax|warning: mysqli?_|mysql_fetch|"
-    r"valid mysql result|ORA-\d{5}|quoted string not properly terminated|"
-    r"PostgreSQL.*ERROR|pg_query\(\)|syntax error at or near|SQLite3?::|"
-    r"sqlite3.OperationalError|Microsoft OLE DB Provider|"
-    r"Unclosed quotation mark|SQLSTATE\[)",
+    r"valid mysql result|MySqlException|com\.mysql\.jdbc|"
+    r"ORA-\d{5}|quoted string not properly terminated|"
+    r"PostgreSQL.*ERROR|pg_query\(\)|syntax error at or near|"
+    r"org\.postgresql\.util\.PSQLException|Npgsql\.|psycopg2\.|"
+    r"SQLite3?::|sqlite3.OperationalError|"
+    r"Microsoft OLE DB Provider|Unclosed quotation mark|SQLSTATE\[|"
+    r"Incorrect syntax near|Conversion failed when converting|"
+    r"System\.Data\.SqlClient\.SqlException|System\.Data\.OleDb|"
+    r"Microsoft SQL (?:Server|Native)|\[SQL Server\]|ODBC SQL Server Driver|"
+    r"SQLServerException|com\.microsoft\.sqlserver|"
+    r"java\.sql\.SQLException|org\.hibernate)",
     re.I,
 )
 _PASSWD = re.compile(r"root:.*?:0:0:")                       # /etc/passwd first line
@@ -105,6 +112,27 @@ _LFI_PAYLOADS = [
 # ------------------------------------------------------- oracles (pure, tested)
 def looks_like_sql_error(text: str) -> bool:
     return bool(_SQL_ERRORS.search(text or ""))
+
+
+def sqli_quote_break(base: str, broken: str, restores, diff: float = 0.9,
+                     restore: float = 0.95) -> bool:
+    """SQLi without an error string: an odd quote clearly changes the response
+    (often a blank/short page when the app swallows the DB exception) while a
+    syntactically-valid continuation restores the original. `restores` are the
+    bodies of valid follow-ups (`1''`, `1 AND 1=1`, `1-- -`) covering string and
+    numeric contexts — any one restoring proves the quote broke SQL, not just
+    that the param dislikes odd input. The diff check keeps reflective params
+    (which barely change) from firing."""
+    import difflib
+
+    def sim(a, b):
+        return difflib.SequenceMatcher(None, (a or "")[:4000], (b or "")[:4000]).ratio()
+
+    if not (base or "").strip():
+        return False                       # no stable baseline to compare against
+    if sim(broken, base) >= diff:
+        return False                       # the quote didn't break anything
+    return any(sim(r, base) >= restore for r in restores)
 
 
 def lfi_signature(text: str) -> str | None:
@@ -179,7 +207,7 @@ class InjectionPhase(Phase):
         for base in self._bases(ws):
             host = urlsplit(base).netloc
             seeds = [base + "/"] + [e.url for e in ws.endpoints if e.url.startswith(base)]
-            pages = await web.crawl(seeds, host, fetch, self.MAX_PAGES)
+            pages = await web.crawl(seeds, host, fetch, self.MAX_PAGES, timeout=self.REQ_TIMEOUT)
 
             points, seen = [], set()
             for url, resp in pages.items():
@@ -209,7 +237,8 @@ class InjectionPhase(Phase):
                     counter[0] += 1
                     console.trace(f"[{counter[0]}/{total}] {pt.method} {pt.action} [{pt.param}]", level=1)
                     hit = await self._test_sqli_error(ws, console, pt)
-                    hit |= await self._test_sqli_boolean(ws, console, pt)
+                    if not hit:            # already proven in-band — no need to also blind-test
+                        hit = await self._test_sqli_boolean(ws, console, pt)
                     await self._test_ssti(ws, console, pt)
                     await self._test_lfi(ws, console, pt)
                     await self._test_xss(ws, console, pt)
@@ -267,23 +296,43 @@ class InjectionPhase(Phase):
                          "Input is reflected without output encoding, allowing script injection.")
         return hit
 
-    # ------------------------------------------------------ SQLi error-based
+    # --------------------------------------------------- SQLi in-band (quote)
     async def _test_sqli_error(self, ws, console, pt) -> bool:
-        baseline = await self._send(pt, "1")
-        injected = await self._send(pt, "1'")
-        base_err = bool(baseline and looks_like_sql_error(baseline.text))
-        inj_err = bool(injected and looks_like_sql_error(injected.text))
-        console.trace(f"sqli/error baseline_err={base_err} injected_err={inj_err}")
-        if inj_err and not base_err:
-            # Confirm: a *balanced* quote should not error — proving the quote was
-            # what broke the query (not some unrelated 500 on any odd input).
+        # One probe set, two oracles: a quote that errors (string leak) and a
+        # quote that *breaks the response* (app swallows the error, returns blank).
+        base = await self._send(pt, "1")
+        broken = await self._send(pt, "1'")
+        if not (base and broken):
+            return False
+        if looks_like_sql_error(base.text):
+            return False                   # baseline already errors — can't tell
+        broke = self._similar(broken.text, base.text) < 0.9
+        console.trace(f"sqli/quote broken_err={looks_like_sql_error(broken.text)} "
+                      f"sim(broken,base)={self._similar(broken.text, base.text):.2f} broke={broke}", level=2)
+
+        # (a) error-based: a single quote raises a DB error a balanced one clears.
+        if looks_like_sql_error(broken.text):
             balanced = await self._send(pt, "1''")
-            cleared = not (balanced and looks_like_sql_error(balanced.text))
-            console.trace(f"confirm sqli/error balanced-quote clears={cleared}")
-            if cleared:
+            if balanced and not looks_like_sql_error(balanced.text):
                 self._report(ws, console, "SQL Injection (error-based)", Severity.HIGH, pt, "1'",
                              "A single quote raised a database error that a balanced quote clears — "
                              "the query is built from unsanitised input.")
+                return True
+
+        # (b) breakage-based: the odd quote breaks the response; a valid SQL
+        #     continuation restores it — SQLi even when no error text leaks.
+        if broke:
+            restores = []
+            for payload in ("1''", "1 AND 1=1", "1-- -"):   # string + numeric contexts
+                r = await self._send(pt, payload)
+                restores.append(r.text if r else "")
+                if self._similar(restores[-1], base.text) >= 0.95:
+                    break                  # one restore is enough
+            if sqli_quote_break(base.text, broken.text, restores):
+                console.trace("sqli/quote broke and a valid continuation restored — CONFIRMED", level=2)
+                self._report(ws, console, "SQL Injection (blind — broken response)", Severity.HIGH, pt, "1'",
+                             "A single quote breaks the response while a valid SQL continuation "
+                             "restores it: the input alters SQL syntax, but the error is suppressed.")
                 return True
         return False
 
@@ -292,32 +341,31 @@ class InjectionPhase(Phase):
         benign = await self._send(pt, pt.values.get(pt.param) or "1")
         if benign is None or not (200 <= benign.status < 300):
             return False
-        true_v, false_v = _SQLI_BOOL[0]
-        rt = await self._send(pt, true_v)
-        rf = await self._send(pt, false_v)
-        if not (rt and rf):
-            return False
-        sim_t = self._similar(rt.text, benign.text)
-        sim_f = self._similar(rf.text, benign.text)
-        console.trace(f"sqli/bool  true~normal={sim_t:.2f} false~normal={sim_f:.2f}")
-        if not boolean_blind_hit(sim_t, sim_f):
-            return False
-        # Confirm in a different quoting context — a template that just happens to
-        # vary won't react the same way to two unrelated boolean injections.
-        for t2, f2 in _SQLI_BOOL[1:]:
-            ct = await self._send(pt, t2)
-            cf = await self._send(pt, f2)
-            if not (ct and cf):
+        # Try every quoting context (string, numeric, double-quote) as a probe —
+        # the right one for the query matters (a numeric `1' AND ...` just breaks
+        # a numeric column and looks like nothing).
+        for true_v, false_v in _SQLI_BOOL:
+            rt = await self._send(pt, true_v)
+            rf = await self._send(pt, false_v)
+            if not (rt and rf):
                 continue
-            if boolean_blind_hit(self._similar(ct.text, benign.text),
-                                 self._similar(cf.text, benign.text)):
-                console.trace("confirm sqli/bool CONFIRMED in a second context")
+            sim_t = self._similar(rt.text, benign.text)
+            sim_f = self._similar(rf.text, benign.text)
+            console.trace(f"sqli/bool [{true_v!r}] true~normal={sim_t:.2f} false~normal={sim_f:.2f}", level=2)
+            if not boolean_blind_hit(sim_t, sim_f):
+                continue
+            # Confirm the same divergence reproduces (guards a one-off content blip).
+            ct = await self._send(pt, true_v)
+            cf = await self._send(pt, false_v)
+            if (ct and cf and boolean_blind_hit(self._similar(ct.text, benign.text),
+                                                self._similar(cf.text, benign.text))):
+                console.trace("confirm sqli/bool reproduced — CONFIRMED", level=2)
                 self._report(ws, console, "SQL Injection (boolean blind)", Severity.HIGH, pt,
                              f"{true_v}  /  {false_v}",
-                             "A TRUE condition returns the normal page while a FALSE one diverges, "
-                             "confirmed across two injection contexts — the query reacts to input.")
+                             "A TRUE condition returns the normal page while a FALSE one diverges "
+                             "(reproduced) — the query's logic reacts to injected input.")
                 return True
-        console.trace("confirm sqli/bool failed — discarded")
+            console.trace("confirm sqli/bool did not reproduce — discarded", level=2)
         return False
 
     # ------------------------------------------------------------ time-based
@@ -373,8 +421,8 @@ class InjectionPhase(Phase):
         oracles can't be trusted here, so skip the whole time-based pass."""
         benign = pt.values.get(pt.param) or "1"
         samples = []
-        for _ in range(5):
-            _, dt = await self._timed_send(pt, benign, timeout=12)
+        for _ in range(4):
+            _, dt = await self._timed_send(pt, benign, timeout=self.REQ_TIMEOUT)
             samples.append(dt)
         noisy = timing_too_noisy(samples)
         console.trace(f"timing jitter min={min(samples):.2f}s max={max(samples):.2f}s "

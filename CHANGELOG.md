@@ -5,6 +5,14 @@ based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [0.4.2] - 2026-06-11
 
+### Added
+- SQLi detection now catches the common "swallowed error" case: a quote that
+  breaks the response (often a blank page) which a valid SQL continuation
+  (`1''`, `1 AND 1=1`, `1-- -`) restores — covering numeric- and string-context
+  injection even when the database error never reaches the page. Boolean-blind
+  now probes string, numeric and double-quote contexts (not just one), and the
+  error-string signatures were expanded (MSSQL / .NET / JDBC / Npgsql).
+
 ### Fixed
 - `injection` no longer crawls to a near-halt on slow, real-world targets. It
   skips framework/anti-CSRF parameters (ASP.NET `__VIEWSTATE` & friends), tests
