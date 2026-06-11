@@ -31,6 +31,7 @@ examples:
   wraith example.com                     full scan — `run` is the default command
   wraith example.com -p tcp-scan,http-probe   only these phases
   wraith example.com -s sessions.json    add Broken Access Control / IDOR
+  wraith example.com -v                  narrate the attack: payloads, oracles, confirmations
   wraith example.com -x high             exit 2 if a High+ finding turns up
   wraith showdown                        toggle showdown mode (reveal on a find; sticks)
   wraith login http://host/login -u alice -p secret -o sessions.json
