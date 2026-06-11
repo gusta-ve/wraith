@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.2] - 2026-06-11
+
+### Changed
+- A slow phase now shows a live spinner on a terminal — a little block that
+  turns with the running phase and its elapsed time — so you're never left
+  staring at a frozen screen, at any verbosity. Piped/CI output keeps the
+  every-15s text line instead (no escape-code noise in logs).
+
 ## [0.5.1] - 2026-06-11
 
 ### Added

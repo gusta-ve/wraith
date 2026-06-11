@@ -80,10 +80,29 @@ class Console:
         # -v level: 1 progress · 2 attack detail (payloads & requests) · 3 + responses
         self.verbose = int(verbose or 0)
         self.showdown = None  # a Showdown (see core/showdown.py) when the mode is on, else None
+        self._spinning = False  # a working-spinner line is currently drawn (TTY)
 
     # All printing goes through here so subclasses can buffer it.
     def _emit(self, text: str = "") -> None:
+        if self._spinning:            # wipe the spinner line before real output lands
+            sys.stdout.write("\r\033[K")
+            self._spinning = False
         print(text, flush=True)
+
+    def spinner(self, frame: str, label: str) -> None:
+        """Draw one frame of a 'still working' spinner — a single rewritten line,
+        TTY only, auto-cleared by _emit before any real output. No newline."""
+        if not sys.stdout.isatty():
+            return
+        sys.stdout.write("\r\033[K" + self._accent(frame) + " " + self._c(DIM, label))
+        sys.stdout.flush()
+        self._spinning = True
+
+    def spin_clear(self) -> None:
+        if self._spinning:
+            sys.stdout.write("\r\033[K")
+            sys.stdout.flush()
+            self._spinning = False
 
     def flush(self) -> None:
         """No-op on the live console; BufferedConsole overrides it to replay.
@@ -268,6 +287,7 @@ class BufferedConsole(Console):
         self.show_banner = parent.show_banner
         self.verbose = parent.verbose
         self.showdown = parent.showdown   # so per-phase findings get the live treatment
+        self._spinning = False
         self._parent = parent
         self._lines: list[str] = []
 

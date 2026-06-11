@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 import time
 from dataclasses import dataclass
 
 from wraith.core.console import BufferedConsole
+
+_SPINNER = "⣾⣽⣻⢿⡿⣟⣯⣷"   # a little block that turns while phases work
 
 
 @dataclass
@@ -39,6 +42,13 @@ class Engine:
         started: dict[str, float] = {}
         sem = asyncio.Semaphore(self.concurrency)
 
+        # On a real terminal, animate a spinner so a slow phase never looks
+        # frozen; piped/CI output falls back to a line every HEARTBEAT seconds.
+        tty = sys.stdout.isatty()
+        tick = 0.12 if tty else self.HEARTBEAT
+        spin_i = 0
+        last_beat = 0.0
+
         # A phase whose dependency is not part of this selection can never run.
         for name, phase in list(pending.items()):
             if not set(phase.requires) <= selected:
@@ -65,14 +75,22 @@ class Engine:
 
             if running:
                 completed, _ = await asyncio.wait(
-                    running.values(), timeout=self.HEARTBEAT, return_when=asyncio.FIRST_COMPLETED)
+                    running.values(), timeout=tick, return_when=asyncio.FIRST_COMPLETED)
                 if not completed:
-                    # Nothing finished this interval — reassure that it's alive.
+                    # Nothing finished this tick — keep the user company.
                     now = time.monotonic()
-                    busy = ", ".join(f"{n} ({int(now - started[n])}s)"
-                                     for n in sorted(running, key=lambda n: started[n]))
-                    self.console.info(f"still working — {busy}")
+                    names = sorted(running, key=lambda n: started[n])
+                    if tty:
+                        secs = int(now - min(started.values()))
+                        self.console.spinner(_SPINNER[spin_i % len(_SPINNER)],
+                                             f"working · {' · '.join(names)} · {secs}s")
+                        spin_i += 1
+                    elif now - last_beat >= self.HEARTBEAT:
+                        busy = ", ".join(f"{n} ({int(now - started[n])}s)" for n in names)
+                        self.console.info(f"still working — {busy}")
+                        last_beat = now
                     continue
+                self.console.spin_clear()
                 for task in completed:
                     name = task.get_name()
                     running.pop(name, None)
@@ -89,6 +107,7 @@ class Engine:
                     self.console.warn(f"skip {name}: unmet dependencies (cycle?)")
                 break
 
+        self.console.spin_clear()
         return results
 
     async def _run_phase(self, phase, sem) -> PhaseResult:
