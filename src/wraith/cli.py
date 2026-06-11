@@ -448,7 +448,11 @@ def main(argv=None) -> None:
     if not hasattr(args, "func"):        # options but no command
         parser.print_help()
         return
-    args.func(args)
+    try:
+        args.func(args)
+    except KeyboardInterrupt:            # Ctrl-C mid-run: exit clean, no traceback
+        print("\n  [-] interrupted", file=sys.stderr)
+        sys.exit(130)                    # 128 + SIGINT, the conventional code
 
 
 if __name__ == "__main__":

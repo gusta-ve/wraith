@@ -15,6 +15,10 @@ based on [Keep a Changelog](https://keepachangelog.com/).
 - Cosmetic flags (`--theme`, `--no-color`, `--no-banner`) work in any position,
   including after the target.
 
+### Fixed
+- Ctrl-C during a scan now exits cleanly (`[-] interrupted`, status 130) instead
+  of dumping an asyncio `KeyboardInterrupt` traceback.
+
 ## [0.4.0] - 2026-06-11
 
 ### Added
