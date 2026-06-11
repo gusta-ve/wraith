@@ -1,13 +1,14 @@
 # wraith
 
 <p align="center">
-  <img src="docs/hero.svg" alt="wraith — offensive recon & exploitation pipeline" width="900">
+  <img src="docs/hero.svg" alt="wraith — offensive recon & vulnerability detection pipeline" width="900">
 </p>
 
-An offensive security scanner that runs the recon-to-exploitation workflow as a
+An offensive security scanner that runs the recon-to-detection workflow as a
 pipeline of small composable phases. Point it at a target; it resolves hosts,
-scans ports, maps the web surface, tests it and reports what it finds. The core
-has no third-party dependencies.
+scans ports, maps the web surface, tests it and reports what it finds — then
+hand the catch to [hickok](https://github.com/gusta-ve/hickok) to act on it. The
+core has no third-party dependencies.
 
 [![PyPI](https://img.shields.io/pypi/v/wraith-sec?color=crimson&label=pypi)](https://pypi.org/project/wraith-sec/)
 [![CI](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml/badge.svg)](https://github.com/gusta-ve/wraith/actions/workflows/ci.yml)
@@ -19,7 +20,7 @@ has no third-party dependencies.
 - [Usage](#usage)
 - [Phases](#phases)
 - [Web testing](#web-testing)
-- [Post-exploitation](#post-exploitation)
+- [Post-exploitation](#post-exploitation--hickok)
 - [Extending](#extending)
 - [Lab](#lab)
 
@@ -155,19 +156,19 @@ wraith login http://target/login -u alice -p secret \
     --user-field user --pass-field password -o sessions.json
 ```
 
-## Post-exploitation
+## Post-exploitation — [hickok](https://github.com/gusta-ve/hickok)
 
-`wraith shell` is a separate interactive console — recon is batch work, landing
-a shell isn't:
+wraith finds and proves the way in; landing a shell and working the box is
+[**hickok**](https://github.com/gusta-ve/hickok)'s job — wraith's companion. It
+reads a wraith run and acts on it:
 
+```bash
+hickok hand wraith-runs/<run>/findings.json   # flags the code-exec footholds
+hickok -l 9001                                # catch the reverse shell
 ```
-wraith shell -l 9001,9002
-  payloads          reverse-shell one-liners for your LHOST
-  sessions          list connected shells
-  cmd 1 id          run a command on session 1
-  upgrade 1         turn a dumb shell into a PTY
-  interact 1        attach (detach with Ctrl-])
-```
+
+wraith holds the aces, hickok brings the eights — aces and eights, the dead
+man's hand.
 
 ## Extending
 

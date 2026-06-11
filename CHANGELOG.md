@@ -3,9 +3,20 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.4.4] - 2026-06-11
+## [0.5.0] - 2026-06-11
+
+wraith is now a focused recon & vulnerability-detection scanner; landing a shell
+moved to its companion, [hickok](https://github.com/gusta-ve/hickok).
+
+### Removed
+- The `wraith shell` reverse-shell handler — it now lives as the standalone
+  **hickok** (`hickok hand findings.json` reads a wraith run and acts on it).
 
 ### Changed
+- Tagline is honest now: "offensive recon & vulnerability detection pipeline"
+  (it detects and proves; exploitation is hickok's job).
+- The showdown reveal is reframed around the dead man's hand: the wraith lays
+  down the two black aces (`A♠ A♣`) and teases hickok's eights.
 - `-v 1` is now lightweight progress — which parameter is being tested, the
   crawl brackets, the time-based pass — instead of the full payload-by-payload
   trace, which moved to `-v 2`. So `wraith target -v` shows it's working without

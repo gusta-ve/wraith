@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wraith-sec"
-version = "0.4.4"
-description = "Offensive security orchestration framework — walks the kill-chain as a pipeline."
+version = "0.5.0"
+description = "Offensive web recon & vulnerability detection — a pipeline of composable phases."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

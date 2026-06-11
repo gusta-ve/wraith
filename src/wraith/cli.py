@@ -24,7 +24,7 @@ _SEVERITY_BY_NAME = {s.label.lower(): s for s in Severity}
 
 # Subcommands. Anything else on the command line is treated as a target for the
 # default `run` command, so `wraith example.com` works without typing `run`.
-_COMMANDS = {"run", "showdown", "phases", "shell", "login", "aces"}
+_COMMANDS = {"run", "showdown", "phases", "login", "aces"}
 
 EXAMPLES = """\
 examples:
@@ -36,9 +36,9 @@ examples:
   wraith example.com -x high             exit 2 if a High+ finding turns up
   wraith showdown                        toggle showdown mode (reveal on a find; sticks)
   wraith login http://host/login -u alice -p secret -o sessions.json
-  wraith shell -l 9001                   catch a reverse shell
 
 run `wraith phases` to see the pipeline; phases run concurrently by dependency.
+landing a shell is hickok's job — wraith's companion: github.com/gusta-ve/hickok
 """
 
 
@@ -332,24 +332,6 @@ def cmd_aces(args) -> None:
     _console(args).aces()
 
 
-def cmd_shell(args) -> None:
-    from wraith.shell import payloads
-    from wraith.shell.handler import ShellServer
-
-    c = _console(args)
-    c.banner()
-    try:
-        ports = [int(p) for p in args.listen.split(",")]
-    except ValueError:
-        raise SystemExit("--listen expects comma-separated port numbers")
-    lhost = args.lhost or payloads.guess_lhost()
-    server = ShellServer(ports, lhost, c)
-    try:
-        asyncio.run(server.run())
-    except KeyboardInterrupt:
-        pass
-
-
 def _output_options() -> argparse.ArgumentParser:
     """Cosmetic options every command understands, shared via parents= so they
     work in any position (`wraith TARGET --no-banner`, not only before it)."""
@@ -388,7 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
     common, scan = _output_options(), _scan_options()
     p = argparse.ArgumentParser(
         prog="wraith",
-        description="Offensive recon & exploitation pipeline.  Run is the default: "
+        description="Offensive recon & vulnerability detection pipeline.  Run is the default: "
                     "`wraith TARGET` or `wraith -u TARGET`.",
         epilog=EXAMPLES,
         formatter_class=_Help,
@@ -411,13 +393,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     ph = sub.add_parser("phases", help="list available phases", formatter_class=_Help, parents=[common])
     ph.set_defaults(func=cmd_phases)
-
-    sh = sub.add_parser("shell", help="reverse-shell handler / post-exploitation console",
-                        formatter_class=_Help, parents=[common])
-    sh.add_argument("-l", "--listen", metavar="PORTS", default="9001",
-                    help="comma-separated ports to listen on (default: 9001)")
-    sh.add_argument("--lhost", metavar="IP", help="LHOST embedded in generated payloads (auto-detected)")
-    sh.set_defaults(func=cmd_shell)
 
     lg = sub.add_parser("login", help="grab a session from a form login -> sessions.json",
                         formatter_class=_Help, parents=[common])

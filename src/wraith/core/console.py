@@ -105,7 +105,7 @@ class Console:
             self._emit("  " + ((BOLD + _fg(shade) + line + RESET) if self.color else line))
         self._emit()
         self._emit("  " + self._accent("» ")
-                   + self._c(DIM, "offensive recon & exploitation pipeline")
+                   + self._c(DIM, "offensive recon & vulnerability detection pipeline")
                    + "   " + self._c(DIM, f"v{__version__}"))
         self._emit("  " + self._c(DIM, "gusta-ve · github.com/gusta-ve/wraith · authorized use only"))
         if self.showdown:
