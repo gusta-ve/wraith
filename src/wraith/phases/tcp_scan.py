@@ -58,7 +58,9 @@ class TcpScanPhase(Phase):
                 except Exception:
                     return None
 
-        tasks = [probe(ip, port) for ip in ips for port in COMMON_PORTS]
+        extra = [p for p in ws.meta.get("extra_ports", []) if p not in COMMON_PORTS]
+        ports = COMMON_PORTS + extra
+        tasks = [probe(ip, port) for ip in ips for port in ports]
         for coro in asyncio.as_completed(tasks):
             res = await coro
             if res is None:

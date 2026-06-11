@@ -3,6 +3,18 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.1] - 2026-06-11
+
+### Added
+- `-u` / `--url` to give the target like other scanners (`wraith -u https://host`);
+  a full URL is normalised to its host, and an explicit port is added to the scan.
+- The scan options (`-u`, `-p`, `-s`, `-x`, `-v`, …) now show in `wraith -h`
+  itself, not only `wraith run -h`.
+
+### Changed
+- Cosmetic flags (`--theme`, `--no-color`, `--no-banner`) work in any position,
+  including after the target.
+
 ## [0.4.0] - 2026-06-11
 
 ### Added

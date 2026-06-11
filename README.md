@@ -67,6 +67,7 @@ ln -sf ~/.local/share/wraith-venv/bin/wraith ~/.local/bin/wraith
 
 ```bash
 wraith target.com                              # full pipeline (no subcommand needed)
+wraith -u https://target.com:8443              # target as a URL (-u/--url); the port is scanned too
 wraith 10.10.10.5 -p resolve,tcp-scan,http-probe   # only these phases
 wraith target.com -s sessions.json             # adds access-control / IDOR
 wraith target.com -v                           # narrate the attack (payloads, oracles, confirmations)

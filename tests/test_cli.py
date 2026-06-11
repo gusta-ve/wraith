@@ -1,4 +1,17 @@
-from wraith.cli import _with_default_command
+from wraith.cli import _normalize_target, _with_default_command
+
+
+def test_normalize_target_accepts_url_and_host():
+    assert _normalize_target("example.com") == ("example.com", None)
+    assert _normalize_target("https://example.com") == ("example.com", None)
+    assert _normalize_target("http://127.0.0.1:8080/path?q=1") == ("127.0.0.1", 8080)
+    assert _normalize_target("127.0.0.1:9999") == ("127.0.0.1", 9999)
+
+
+def test_dash_u_routes_to_run():
+    assert _with_default_command(["-u", "https://x.com"]) == ["run", "-u", "https://x.com"]
+    # flags before a bare target still default to run
+    assert _with_default_command(["-p", "resolve", "x.com"]) == ["run", "-p", "resolve", "x.com"]
 
 
 def test_bare_target_gets_run_prepended():
