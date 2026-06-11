@@ -49,3 +49,16 @@ def test_missing_dependency_is_skipped(tmp_path):
 def test_findings_are_counted(tmp_path):
     _, res = _run([FakePhase("a", finding=True)], tmp_path)
     assert res["a"].findings_added == 1
+
+
+def test_heartbeat_reassures_when_a_phase_is_slow(tmp_path, capsys):
+    class SlowPhase(FakePhase):
+        async def run(self, ws, console):
+            await asyncio.sleep(0.3)
+
+    ws = Workspace.create("t", base_dir=str(tmp_path))
+    engine = Engine(ws, [SlowPhase("slow")], Console(banner=False), concurrency=2)
+    engine.HEARTBEAT = 0.1          # fire well before the phase finishes
+    asyncio.run(engine.run())
+    out = capsys.readouterr().out
+    assert "still working" in out and "slow" in out

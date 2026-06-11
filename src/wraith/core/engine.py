@@ -19,6 +19,10 @@ class PhaseResult:
 
 
 class Engine:
+    # If nothing finishes for this long, tell the user which phases are still
+    # working — so a slow target never looks like a frozen run, at any verbosity.
+    HEARTBEAT = 15.0
+
     def __init__(self, workspace, phases, console, concurrency: int = 8):
         self.ws = workspace
         self.console = console
@@ -32,6 +36,7 @@ class Engine:
         results: list[PhaseResult] = []
         pending = dict(self.phases)
         running: dict[str, asyncio.Task] = {}
+        started: dict[str, float] = {}
         sem = asyncio.Semaphore(self.concurrency)
 
         # A phase whose dependency is not part of this selection can never run.
@@ -55,13 +60,23 @@ class Engine:
                 elif req <= done:
                     pending.pop(name)
                     running[name] = asyncio.create_task(self._run_phase(phase, sem), name=name)
+                    started[name] = time.monotonic()
                     progressed = True
 
             if running:
-                completed, _ = await asyncio.wait(running.values(), return_when=asyncio.FIRST_COMPLETED)
+                completed, _ = await asyncio.wait(
+                    running.values(), timeout=self.HEARTBEAT, return_when=asyncio.FIRST_COMPLETED)
+                if not completed:
+                    # Nothing finished this interval — reassure that it's alive.
+                    now = time.monotonic()
+                    busy = ", ".join(f"{n} ({int(now - started[n])}s)"
+                                     for n in sorted(running, key=lambda n: started[n]))
+                    self.console.info(f"still working — {busy}")
+                    continue
                 for task in completed:
                     name = task.get_name()
                     running.pop(name, None)
+                    started.pop(name, None)
                     result = task.result()
                     results.append(result)
                     (done if result.status == "done" else failed).add(name)

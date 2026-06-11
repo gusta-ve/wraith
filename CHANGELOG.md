@@ -5,11 +5,16 @@ based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [0.4.3] - 2026-06-11
 
+### Added
+- A heartbeat: if no phase finishes for 15s, the engine prints which phases are
+  still running and for how long (`still working — injection (38s)`). It shows
+  at any verbosity (it comes from the scheduler, not a buffered phase), so a
+  slow target never looks like a frozen run.
+
 ### Changed
-- The crawl and `content-discovery` now report progress under `-v`, so a slow
-  target no longer looks frozen during them: `-v` brackets the crawl
-  (`crawling… / crawl done: N pages`) and `-v 2` prints each request
-  (`crawl [n/total] → GET …`, and every path probed).
+- Under `-v`, the crawl and `content-discovery` also report fine-grained
+  progress: `-v` brackets the crawl (`crawling… / crawl done: N pages`) and
+  `-v 2` prints each request (`crawl [n/total] → GET …`, and every path probed).
 
 ## [0.4.2] - 2026-06-11
 
