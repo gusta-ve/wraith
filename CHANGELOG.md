@@ -3,6 +3,12 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.3] - 2026-06-11
+
+### Fixed
+- The showdown scoreboard now shows the two black aces (`A♠ A♣`), matching the
+  reveal — the old red-heart ace was a leftover from before the dead man's hand.
+
 ## [0.5.2] - 2026-06-11
 
 ### Changed

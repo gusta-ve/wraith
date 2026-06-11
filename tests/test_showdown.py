@@ -30,7 +30,7 @@ def test_verdict_reads_the_targets_hand(capsys):
     c = Console(color=False, banner=False)
     Showdown(c)._verdict([_f(Severity.HIGH, "x"), _f(Severity.LOW, "y")])
     out = capsys.readouterr().out
-    assert "A♣" in out and "A♥" in out
+    assert "A♠" in out and "A♣" in out   # the two black aces (half a dead man's hand)
     assert "1 High" in out and "1 Low" in out
     assert "never had the cards" in out
 

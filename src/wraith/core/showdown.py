@@ -133,8 +133,8 @@ class Showdown:
             counts[f.severity.label] = counts.get(f.severity.label, 0) + 1
         worst = max((f.severity for f in findings), default=Severity.INFO)
 
-        white, red = _fg((235, 235, 235)), _fg((255, 80, 80))
-        aces = self.c._c(BOLD + white, "A♣") + " " + self.c._c(BOLD + red, "A♥")
+        white = _fg((235, 235, 235))     # the two black aces — half a dead man's hand
+        aces = self.c._c(BOLD + white, "A♠") + " " + self.c._c(BOLD + white, "A♣")
         held = [f"{counts[label]} {label}" for label in ("Critical", "High", "Medium", "Low")
                 if counts.get(label)]
         target_hand = " · ".join(held) if held else "a busted hand"
