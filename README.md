@@ -88,7 +88,8 @@ wraith-runs/target.com-<ts>/
   findings.json
 ```
 
-A real run against the bundled lab:
+A run against the bundled lab (`examples/vuln_app.py`) — every finding shown is
+one wraith actually catches:
 
 ![a wraith run](docs/demo.svg)
 
