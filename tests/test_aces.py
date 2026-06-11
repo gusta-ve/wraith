@@ -30,7 +30,8 @@ def test_aces_renders_art_and_phrase(capsys):
     out = capsys.readouterr().out
     assert "@" in out or "%" in out      # the wraith silhouette
     assert "aces" in out                 # the reveal phrase
-    assert "A♣" in out and "A♥" in out   # the pocket aces
+    assert "A♠" in out and "A♣" in out   # the two black aces (half the dead man's hand)
+    assert "Hickok" in out               # teases its companion that brings the eights
 
 
 def test_banner_is_clean_wordmark(capsys):

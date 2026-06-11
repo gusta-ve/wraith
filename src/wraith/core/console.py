@@ -153,17 +153,19 @@ class Console:
         self._emit("                 the wraith reveals its hand —  " + hand)
         self._emit()
         self._emit("        " + self._c(DIM, "you never saw it coming — the wraith was already holding aces."))
+        self._emit("        " + self._c(DIM, "two black aces down. the eights ride in with Hickok."))
         self._emit()
 
     def aces(self) -> None:
-        """The reveal — the spectre laying down its pocket aces.
+        """The reveal — the spectre laying down the two black aces.
 
-        Used both on demand (the `wraith aces` easter egg) and as the end-of-run
-        showdown when wraith catches a vulnerability; the findings it caught are
-        listed right after, by findings_report().
+        Half of the dead man's hand (aces and eights): the wraith holds the
+        aces, its companion `hickok` brings the eights. Used on demand (the
+        `wraith aces` easter egg) and as the end-of-run showdown when wraith
+        catches a vulnerability; the findings it caught are listed right after.
         """
-        white, red = _fg((235, 235, 235)), _fg((255, 80, 80))
-        self._reveal(self._c(BOLD + white, "A♣") + "  " + self._c(BOLD + red, "A♥"))
+        white = _fg((235, 235, 235))     # the black aces — spades & clubs
+        self._reveal(self._c(BOLD + white, "A♠") + "  " + self._c(BOLD + white, "A♣"))
 
     @staticmethod
     def _tint(run, idx, lo, hi) -> str:
