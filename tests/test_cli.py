@@ -1,4 +1,11 @@
-from wraith.cli import _normalize_target, _with_default_command
+from wraith.cli import _is_foothold, _normalize_target, _with_default_command
+
+
+def test_is_foothold_flags_code_execution():
+    assert _is_foothold("Command Injection in 'host'") is True
+    assert _is_foothold("Server-Side Template Injection in 'name'") is True
+    assert _is_foothold("Reflected XSS in 'q'") is False
+    assert _is_foothold("SQL Injection (boolean blind) in 'id'") is False
 
 
 def test_normalize_target_accepts_url_and_host():

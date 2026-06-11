@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.1] - 2026-06-11
+
+### Added
+- When a run catches a code-execution foothold (command injection, SSTI, …),
+  the summary points at hickok with the ready command
+  (`hickok hand <findings.json>`) — only when there's actually a hand to play.
+
+### Changed
+- The showdown reveal is understated: the wraith lays down the two black aces
+  and says nothing more — the dead man's hand is left unspoken.
+
 ## [0.5.0] - 2026-06-11
 
 wraith is now a focused recon & vulnerability-detection scanner; landing a shell

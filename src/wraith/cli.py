@@ -156,6 +156,17 @@ def _load_sessions(ws, path, console) -> None:
     console.info(f"loaded {len(ws.sessions)} session(s) from {path}")
 
 
+# Finding titles that mean server-side code execution — a way in that hickok,
+# wraith's post-exploitation companion, can turn into a shell.
+_FOOTHOLD_TITLES = ("command injection", "remote code", "rce", "code execution",
+                    "server-side template injection", "ssti", "deserial", "file upload")
+
+
+def _is_foothold(title: str) -> bool:
+    t = (title or "").lower()
+    return any(k in t for k in _FOOTHOLD_TITLES)
+
+
 def cmd_run(args) -> None:
     c = _console(args)
     c.banner()
@@ -213,6 +224,11 @@ def cmd_run(args) -> None:
         for f in ws.findings:
             counts[f.severity.label] = counts.get(f.severity.label, 0) + 1
         c.severity_summary(counts)
+
+    # A code-execution finding is a foothold — point at hickok, but only when
+    # there's actually a hand to play.
+    if any(_is_foothold(f.title) for f in ws.findings):
+        c.info(f"a way in — deal the hand to hickok:  hickok hand {report_json}")
 
     if fail:
         sys.exit(2)
