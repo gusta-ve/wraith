@@ -83,7 +83,11 @@ class Console:
 
     # All printing goes through here so subclasses can buffer it.
     def _emit(self, text: str = "") -> None:
-        print(text)
+        print(text, flush=True)
+
+    def flush(self) -> None:
+        """No-op on the live console; BufferedConsole overrides it to replay.
+        Lets the engine treat a live (verbose) console like a buffered one."""
 
     def _c(self, code: str, text: str) -> str:
         return f"{code}{text}{RESET}" if self.color else text

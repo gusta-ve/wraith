@@ -3,6 +3,24 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.2] - 2026-06-11
+
+### Fixed
+- `injection` no longer crawls to a near-halt on slow, real-world targets. It
+  skips framework/anti-CSRF parameters (ASP.NET `__VIEWSTATE` & friends), tests
+  parameters concurrently instead of one at a time, uses a tighter per-probe
+  timeout so a stalled request fails fast, and SSTI now does a single polyglot
+  pre-check before escalating. A scan that effectively never finished now
+  completes in ~100s.
+- Time-based SQLi / command-injection tests are skipped on a high-jitter target
+  (sampled up front): when benign latency swings wildly, an injected sleep is
+  indistinguishable from random server lag, so timing oracles there only produce
+  false positives. They still run on stable targets.
+
+### Changed
+- Under `-v`, output now streams live instead of being buffered until each phase
+  finishes — a long or stuck phase narrates in real time.
+
 ## [0.4.1] - 2026-06-11
 
 ### Added

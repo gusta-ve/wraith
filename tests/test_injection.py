@@ -1,5 +1,6 @@
 from wraith.phases.injection import (
     REDIRECT_PARAMS,
+    _skip_param,
     boolean_blind_hit,
     looks_like_sql_error,
     lfi_signature,
@@ -7,7 +8,23 @@ from wraith.phases.injection import (
     ssti_payloads,
     timing_confirms,
     timing_hit,
+    timing_too_noisy,
 )
+
+
+def test_timing_too_noisy_guards_jittery_targets():
+    assert timing_too_noisy([0.30, 0.31, 0.29, 0.30]) is False   # stable -> trust timing
+    assert timing_too_noisy([0.9, 12.1, 0.95, 22.2]) is True      # wild swings (vulnweb-like)
+    assert timing_too_noisy([5.0, 5.1, 5.2]) is True              # slow but steady -> still unreliable
+    assert timing_too_noisy([]) is True
+
+
+def test_skip_framework_and_csrf_params():
+    for noise in ("__VIEWSTATE", "__EVENTVALIDATION", "__VIEWSTATEGENERATOR",
+                  "csrfmiddlewaretoken", "authenticity_token", "__RequestVerificationToken"):
+        assert _skip_param(noise) is True
+    for real in ("id", "q", "username", "search", "file"):
+        assert _skip_param(real) is False
 
 
 def test_sql_error_detection():

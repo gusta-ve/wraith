@@ -78,6 +78,21 @@ _SQLI_BOOL = [
     ("1 AND 1=1",     "1 AND 1=2"),
     ('1" AND "1"="1', '1" AND "1"="2'),
 ]
+# Parameters that are framework plumbing or anti-CSRF tokens, never the vuln —
+# testing them just burns requests (ASP.NET __VIEWSTATE alone is huge).
+_SKIP_PARAMS = {
+    "__viewstate", "__viewstategenerator", "__eventvalidation", "__eventtarget",
+    "__eventargument", "__viewstateencrypted", "__requestverificationtoken",
+    "csrfmiddlewaretoken", "authenticity_token", "csrf_token", "csrftoken",
+    "_csrf", "__csrf", "_token",
+}
+
+
+def _skip_param(name: str) -> bool:
+    n = (name or "").lower()
+    return n in _SKIP_PARAMS or n.startswith("__")
+
+
 # Path traversal / LFI: (payload, label). All checked against the signatures.
 _LFI_PAYLOADS = [
     ("../../../../../../../../etc/passwd",          "unix /etc/passwd"),
@@ -136,6 +151,15 @@ def timing_confirms(base_t: float, e1: float, s1: float, e2: float, s2: float) -
             and (e2 - base_t) > (e1 - base_t) + 0.5 * (s2 - s1))
 
 
+def timing_too_noisy(samples, max_spread: float = 2.0, max_slow: float = 4.0) -> bool:
+    """A target whose benign response time swings wildly (or is just slow) can't
+    be timed reliably — an injected sleep is indistinguishable from random lag,
+    so time-based tests there only invent false positives."""
+    if not samples:
+        return True
+    return (max(samples) - min(samples)) > max_spread or max(samples) > max_slow
+
+
 @register
 class InjectionPhase(Phase):
     name = "injection"
@@ -144,6 +168,8 @@ class InjectionPhase(Phase):
 
     MAX_PAGES = 25
     MAX_POINTS = 60
+    POINT_CONCURRENCY = 16  # parameters tested in parallel (overlaps remote latency)
+    REQ_TIMEOUT = 6.0       # per-probe timeout — a stalled request fails fast, not the queue
     TIMING_POINTS = 10      # time-based probes are slow; cap how many points get them
     SLEEP_FAST = 3          # initial time-based probe
     SLEEP_CONFIRM = 6       # confirmation sleep — must delay proportionally more
@@ -158,6 +184,8 @@ class InjectionPhase(Phase):
             points, seen = [], set()
             for url, resp in pages.items():
                 for pt in web.build_points(url, resp.text):
+                    if _skip_param(pt.param):
+                        continue          # framework / anti-CSRF plumbing, never the vuln
                     key = (pt.method, pt.action, pt.param, pt.location)
                     if key not in seen:
                         seen.add(key)
@@ -168,24 +196,46 @@ class InjectionPhase(Phase):
                 continue
 
             console.info(f"{base}: testing {len(points)} parameter(s)")
-            for i, pt in enumerate(points):
-                console.trace(f"[{i + 1}/{len(points)}] {pt.method} {pt.action} [{pt.param}] ({pt.location})")
-                sqli = await self._test_sqli_error(ws, console, pt)
-                sqli |= await self._test_sqli_boolean(ws, console, pt)
-                await self._test_ssti(ws, console, pt)
-                await self._test_lfi(ws, console, pt)
-                await self._test_xss(ws, console, pt)
-                if pt.param.lower() in REDIRECT_PARAMS and pt.location == "query":
-                    await self._test_open_redirect(ws, console, pt)
-                # Time-based is expensive: bounded subset, and skip the SQL family
-                # if the param already proved SQL-injectable (still probe cmdi).
-                if i < self.TIMING_POINTS:
-                    await self._test_time_based(ws, console, pt, skip_sql=sqli)
+            total = len(points)
+            sqli_flagged: set = set()
+
+            # Pass 1 — the cheap tests, run concurrently so request latency
+            # overlaps. Sequential against a remote target is painfully slow.
+            sem = asyncio.Semaphore(self.POINT_CONCURRENCY)
+            counter = [0]
+
+            async def cheap(pt):
+                async with sem:
+                    counter[0] += 1
+                    console.trace(f"[{counter[0]}/{total}] {pt.method} {pt.action} [{pt.param}]", level=1)
+                    hit = await self._test_sqli_error(ws, console, pt)
+                    hit |= await self._test_sqli_boolean(ws, console, pt)
+                    await self._test_ssti(ws, console, pt)
+                    await self._test_lfi(ws, console, pt)
+                    await self._test_xss(ws, console, pt)
+                    if pt.param.lower() in REDIRECT_PARAMS and pt.location == "query":
+                        await self._test_open_redirect(ws, console, pt)
+                    if hit:
+                        sqli_flagged.add(id(pt))
+
+            await asyncio.gather(*(cheap(pt) for pt in points))
+
+            # Pass 2 — time-based, sequential on a bounded subset so the timing
+            # measurement isn't muddied by other requests running in parallel.
+            # Skipped entirely on a high-jitter target: timing oracles can't tell
+            # an injected sleep from random server lag there, so they'd be both
+            # unreliable (false positives) and slow.
+            timing = points[: self.TIMING_POINTS]
+            if timing and await self._timing_reliable(console, timing[0]):
+                console.trace(f"time-based pass on {len(timing)} parameter(s)", level=1)
+                for pt in timing:
+                    await self._test_time_based(ws, console, pt, skip_sql=(id(pt) in sqli_flagged))
 
     # ----------------------------------------------------------- transport
     _console = None
 
-    async def _send(self, pt, value, timeout=8.0):
+    async def _send(self, pt, value, timeout=None):
+        timeout = timeout or self.REQ_TIMEOUT
         values = dict(pt.values)
         values[pt.param] = value
         if self._console is not None:
@@ -318,24 +368,44 @@ class InjectionPhase(Phase):
             samples.append(dt)
         return min(samples)  # min is the least noisy estimate of "normal"
 
+    async def _timing_reliable(self, console, pt) -> bool:
+        """Sample the target's benign latency; if it swings too much, timing
+        oracles can't be trusted here, so skip the whole time-based pass."""
+        benign = pt.values.get(pt.param) or "1"
+        samples = []
+        for _ in range(5):
+            _, dt = await self._timed_send(pt, benign, timeout=12)
+            samples.append(dt)
+        noisy = timing_too_noisy(samples)
+        console.trace(f"timing jitter min={min(samples):.2f}s max={max(samples):.2f}s "
+                      f"spread={max(samples) - min(samples):.2f}s → {'too noisy' if noisy else 'ok'}",
+                      level=1)
+        if noisy:
+            console.warn("target latency too noisy for reliable time-based tests — skipping them")
+        return not noisy
+
     # ------------------------------------------------------------------ SSTI
     async def _test_ssti(self, ws, console, pt) -> bool:
         a, b = random.randint(41, 99), random.randint(41, 99)
         expr, product = f"{a}*{b}", a * b
+        # Cheap pre-check: one polyglot covering the common syntaxes. The product
+        # shows up only if *some* engine evaluated it (a random 4-digit product
+        # won't collide by chance), so non-vulnerable params cost a single
+        # request instead of one per template.
+        poly = "${%s}${{%s}}#{%s}{{%s}}<%%=%s%%>" % (expr, expr, expr, expr, expr)
+        pre = await self._send(pt, poly)
+        if pre is None or str(product) not in pre.text:
+            console.trace(f"ssti pre-check {expr} → no eval", level=2)
+            return False
+        # Something evaluated — find which engine and confirm with a fresh product.
         for engine, payload in ssti_payloads(a, b):
             r = await self._send(pt, payload)
-            if r is None:
+            if r is None or not ssti_evaluated(r.text, product, expr):
                 continue
-            hit = ssti_evaluated(r.text, product, expr)
-            console.trace(f"ssti/{engine:<17} sent {expr} → {'eval=' + str(product) if hit else 'reflected/none'}")
-            if not hit:
-                continue
-            # Confirm with a different product so a stray "{product}" in the page
-            # can't pass for evaluation.
             c, d = random.randint(41, 99), random.randint(41, 99)
             r2 = await self._send(pt, payload.replace(expr, f"{c}*{d}"))
             ok = r2 is not None and ssti_evaluated(r2.text, c * d, f"{c}*{d}")
-            console.trace(f"confirm ssti sent {c}*{d} → {'CONFIRMED' if ok else 'discarded'}")
+            console.trace(f"ssti/{engine} eval={product} confirm={'CONFIRMED' if ok else 'discarded'}", level=2)
             if ok:
                 self._report(ws, console, "Server-Side Template Injection", Severity.HIGH, pt, payload,
                              f"A template expression was evaluated server-side ({engine}: "

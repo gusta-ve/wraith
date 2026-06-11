@@ -78,9 +78,11 @@ class Engine:
 
     async def _run_phase(self, phase, sem) -> PhaseResult:
         async with sem:
-            # Buffer this phase's output so concurrent phases don't interleave;
-            # the whole block is flushed atomically when the phase finishes.
-            buf = BufferedConsole(self.console)
+            # Normally buffer a phase's output so concurrent phases don't
+            # interleave, flushing it atomically when the phase finishes. But
+            # under -v stream live, so a slow or stuck phase still narrates in
+            # real time instead of hiding everything until it returns.
+            buf = self.console if self.console.verbose else BufferedConsole(self.console)
             buf.phase(phase.name, phase.description)
             before = len(self.ws.findings)
             t0 = time.perf_counter()
