@@ -77,7 +77,7 @@ class Console:
         self.theme = THEMES.get(name, THEMES[DEFAULT_THEME])
         self.color = _supports_color(color)
         self.show_banner = banner
-        # -v level: 1 attack play-by-play · 2 + HTTP requests · 3 + responses
+        # -v level: 1 progress · 2 attack detail (payloads & requests) · 3 + responses
         self.verbose = int(verbose or 0)
         self.showdown = None  # a Showdown (see core/showdown.py) when the mode is on, else None
 

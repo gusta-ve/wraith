@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.4] - 2026-06-11
+
+### Changed
+- `-v 1` is now lightweight progress — which parameter is being tested, the
+  crawl brackets, the time-based pass — instead of the full payload-by-payload
+  trace, which moved to `-v 2`. So `wraith target -v` shows it's working without
+  flooding the screen; `-v 2` is the detailed attack play-by-play (every payload
+  and request), `-v 3` adds responses.
+
 ## [0.4.3] - 2026-06-11
 
 ### Added

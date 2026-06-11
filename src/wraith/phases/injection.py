@@ -296,7 +296,7 @@ class InjectionPhase(Phase):
         payload = f'{probe}"><svg/onload=alert(1)>'
         r = await self._send(pt, payload)
         hit = bool(r and payload in r.text)
-        console.trace(f"xss        marker reflected raw={hit}")
+        console.trace(f"xss        marker reflected raw={hit}", level=2)
         if hit:
             self._report(ws, console, "Reflected XSS", Severity.HIGH, pt, payload,
                          "Input is reflected without output encoding, allowing script injection.")
@@ -377,7 +377,7 @@ class InjectionPhase(Phase):
     # ------------------------------------------------------------ time-based
     async def _test_time_based(self, ws, console, pt, skip_sql=False) -> bool:
         base_t = await self._baseline_time(pt)
-        console.trace(f"timing baseline {base_t:.2f}s")
+        console.trace(f"timing baseline {base_t:.2f}s", level=2)
         families = ([] if skip_sql else list(_SQLI_TIME)) + list(_CMDI_TIME)
 
         # Fire the whole family at once with a short sleep, then confirm the one
@@ -389,7 +389,7 @@ class InjectionPhase(Phase):
         candidate = None
         for (label, tmpl), (r, dt) in zip(families, probes):
             hit = r is not None and timing_hit(base_t, dt, self.SLEEP_FAST)
-            console.trace(f"{label:<16} sleep({self.SLEEP_FAST}) → {dt:.2f}s  {'HIT' if hit else '·'}")
+            console.trace(f"{label:<16} sleep({self.SLEEP_FAST}) → {dt:.2f}s  {'HIT' if hit else '·'}", level=2)
             if hit and candidate is None:
                 candidate = (label, tmpl, dt)
         if candidate is None:
@@ -400,7 +400,7 @@ class InjectionPhase(Phase):
                                          timeout=self.SLEEP_CONFIRM + 8)
         ok = r2 is not None and timing_confirms(base_t, dt1, self.SLEEP_FAST, dt2, self.SLEEP_CONFIRM)
         console.trace(f"confirm {label} sleep({self.SLEEP_CONFIRM}) → {dt2:.2f}s  "
-                      f"{'CONFIRMED' if ok else 'not correlated — discarded'}")
+                      f"{'CONFIRMED' if ok else 'not correlated — discarded'}", level=2)
         if not ok:
             return False
 
@@ -477,13 +477,13 @@ class InjectionPhase(Phase):
                 continue
             sig = lfi_signature(r.text)
             hit = sig is not None and sig != base_sig
-            console.trace(f"lfi/{label:<28} {'READ ' + sig if hit else 'no'}")
+            console.trace(f"lfi/{label:<28} {'READ ' + sig if hit else 'no'}", level=2)
             if not hit:
                 continue
             # Confirm it reads again — a one-off match could be noise.
             r2 = await self._send(pt, payload)
             if r2 and lfi_signature(r2.text) == sig:
-                console.trace(f"confirm lfi {sig} read twice CONFIRMED")
+                console.trace(f"confirm lfi {sig} read twice CONFIRMED", level=2)
                 self._report(ws, console, "Path Traversal / Local File Inclusion", Severity.HIGH,
                              pt, payload,
                              f"A traversal payload returned a {sig} signature absent from the "
@@ -498,7 +498,7 @@ class InjectionPhase(Phase):
             return False
         location = r.headers.get("location", "")
         hit = r.status in (301, 302, 303, 307, 308) and "wraith.example" in location
-        console.trace(f"open-redirect status={r.status} location={location!r} hit={hit}")
+        console.trace(f"open-redirect status={r.status} location={location!r} hit={hit}", level=2)
         if hit:
             self._report(ws, console, "Open Redirect", Severity.MEDIUM, pt, "https://wraith.example/",
                          "The redirect target is taken from user input without validation.")
