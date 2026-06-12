@@ -10,6 +10,7 @@ Planted issues (and the phase that finds each):
   /product?id=            quote triggers a SQL error       -> injection (SQLi error-based)
   /items?id=              FALSE condition empties the page -> injection (SQLi boolean-blind)
   /db?id=                 boolean-blind SQLi over a real sqlite DB (walk it with hickok sql)
+  /news?id=               UNION-based SQLi (reflected) over the same DB
   /lookup?token=          honours an injected SQL sleep    -> injection (SQLi time-blind)
   /ping?host=             shell metachars run (sleep)      -> injection (command injection)
   /render?name=           evaluates {{a*b}} server-side    -> injection (SSTI)
@@ -41,6 +42,8 @@ _DB.executescript(
     "INSERT INTO users VALUES (1,'admin','s3cr3t!'),(2,'alice','wonderland'),(3,'bob','hunter2');"
     "CREATE TABLE secrets (id INTEGER PRIMARY KEY, name TEXT, value TEXT);"
     "INSERT INTO secrets VALUES (1,'flag','HCK{the_house_always_collects}');"
+    "CREATE TABLE news (id INTEGER PRIMARY KEY, title TEXT, body TEXT);"
+    "INSERT INTO news VALUES (1,'Welcome','first post'),(2,'Update','second post');"
 )
 
 
@@ -176,6 +179,20 @@ class Handler(BaseHTTPRequestHandler):
                 row = None                       # malformed query -> error swallowed
             return self._send(200, page("<h1>Account active</h1>" if row
                                         else "<h1>No such account</h1>"))
+
+        if path == "/news":
+            # VULNERABLE: UNION-based SQLi — two columns reflected into the page,
+            # so a tool can UNION SELECT data straight into the response.
+            raw = (query.get("id") or ["1"])[0]
+            try:
+                with _DB_LOCK:
+                    row = _DB.execute(f"SELECT title, body FROM news WHERE id = '{raw}'").fetchone()
+            except Exception:
+                row = None
+            if row:
+                return self._send(200, page(f"<h1>{html.escape(str(row[0]))}</h1>"
+                                            f"<p>{html.escape(str(row[1]))}</p>"))
+            return self._send(200, page("<h1>No article</h1>"))
 
         if path == "/ping":
             # VULNERABLE: command injection — shell metacharacters execute.
