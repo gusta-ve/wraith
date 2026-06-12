@@ -24,7 +24,7 @@ _SEVERITY_BY_NAME = {s.label.lower(): s for s in Severity}
 
 # Subcommands. Anything else on the command line is treated as a target for the
 # default `run` command, so `wraith example.com` works without typing `run`.
-_COMMANDS = {"run", "showdown", "phases", "login", "aces"}
+_COMMANDS = {"run", "showdown", "phases", "login", "hand"}
 
 EXAMPLES = """\
 examples:
@@ -355,7 +355,7 @@ def cmd_showdown(args) -> None:
         c.info("showdown mode OFF — wraith runs plain again")
 
 
-def cmd_aces(args) -> None:
+def cmd_hand(args) -> None:
     _console(args).aces()
 
 
@@ -434,8 +434,8 @@ def build_parser() -> argparse.ArgumentParser:
     lg.add_argument("--role", metavar="ROLE", default="low", help="session role (none/low/med/high)")
     lg.set_defaults(func=cmd_login)
 
-    egg = sub.add_parser("aces", parents=[common])  # easter egg: no help= keeps it out of the listing
-    egg.set_defaults(func=cmd_aces)
+    egg = sub.add_parser("hand", parents=[common])  # easter egg: no help= keeps it out of the listing
+    egg.set_defaults(func=cmd_hand)
 
     return p
 
