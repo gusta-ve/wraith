@@ -112,7 +112,7 @@ http-probe         status, Server header and title
 content-discovery  path/file wordlist with soft-404 filtering
 tech-detect        server / language / framework / CMS fingerprint
 vhost              virtual-host discovery via Host-header fuzzing
-template-checks    declarative JSON/YAML checks (nuclei-style)
+template-checks    declarative JSON/YAML vulnerability checks
 security-headers   security headers, cookie flags and CORS
 injection          XSS, SQLi (error/boolean/time), command injection, SSTI, LFI, open redirect
 access-control     Broken Access Control and IDOR (needs sessions)

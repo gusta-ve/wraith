@@ -1,4 +1,4 @@
-"""Web — declarative vulnerability templates (a nuclei-lite engine).
+"""Web — declarative vulnerability templates (a lightweight matcher engine).
 
 A template is a JSON (or YAML, if pyyaml is installed) document describing one or
 more requests and the matchers that decide whether the response indicates a

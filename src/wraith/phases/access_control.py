@@ -2,7 +2,7 @@
 
 Two complementary tests, driven by a set of authenticated sessions:
 
-  1. Vertical BAC (Autorize-style differential)
+  1. Vertical BAC (differential replay)
      Crawl the app as the highest-privilege session, then replay every request
      under the lower-privilege sessions. If a lower principal receives a 2xx
      response whose body matches the privileged one, access control is bypassed.
@@ -46,7 +46,7 @@ _STATIC_EXT = (".css", ".js", ".mjs", ".map", ".svg", ".png", ".jpg", ".jpeg",
 class AccessControlPhase(Phase):
     name = "access-control"
     requires = frozenset()
-    description = "Broken Access Control (Autorize-style) & IDOR via multi-session replay."
+    description = "Broken Access Control & IDOR via multi-session differential replay."
 
     # A vertical bypass means a lower principal sees content *identical* to the
     # privileged one (the same protected resource) — not a personalized view of
@@ -130,7 +130,7 @@ class AccessControlPhase(Phase):
                 target=url,
                 evidence=f"session(s) {who} received 2xx matching privileged '{priv.name}'",
                 description="A lower-privilege principal received the same protected content as a "
-                            "privileged one (Autorize-style differential replay).",
+                            "privileged one (differential replay across sessions).",
             )
 
     # ----------------------------------------------------------------- IDOR

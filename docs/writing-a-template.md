@@ -1,7 +1,7 @@
 # Writing a template
 
 The `template-checks` phase runs declarative templates against every discovered
-host — a lightweight take on the nuclei model. Built-ins live in
+host — request/matcher pairs expressed as plain data. Built-ins live in
 `wraith/templates/`; add your own and point the run at them with
 `--templates DIR`.
 

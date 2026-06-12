@@ -3,6 +3,12 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.1] - 2026-06-12
+
+### Changed
+- Phase descriptions and docs now stand on their own terms — no comparisons to
+  other tools. Refreshed the demo to the current version.
+
 ## [0.6.0] - 2026-06-11
 
 ### Changed
