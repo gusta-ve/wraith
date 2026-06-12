@@ -45,6 +45,9 @@ _DB.executescript(
     "CREATE TABLE news (id INTEGER PRIMARY KEY, title TEXT, body TEXT);"
     "INSERT INTO news VALUES (1,'Welcome','first post'),(2,'Update','second post');"
 )
+# A sleep() so the in-memory sqlite can honour conditional time-based payloads
+# (real sqlite has none) — lets the lab exercise time-based blind SQLi.
+_DB.create_function("sleep", 1, lambda n: time.sleep(min(float(n), 8)) or 0)
 
 
 def _sql_sleep(raw: str) -> None:
@@ -179,6 +182,17 @@ class Handler(BaseHTTPRequestHandler):
                 row = None                       # malformed query -> error swallowed
             return self._send(200, page("<h1>Account active</h1>" if row
                                         else "<h1>No such account</h1>"))
+
+        if path == "/vault":
+            # VULNERABLE: time-blind SQLi — the response is ALWAYS identical, so
+            # nothing leaks but the response *time* (only time-based works here).
+            raw = (query.get("id") or ["1"])[0]
+            try:
+                with _DB_LOCK:
+                    _DB.execute(f"SELECT 1 FROM users WHERE id = '{raw}'").fetchone()
+            except Exception:
+                pass
+            return self._send(200, page("<h1>Vault</h1><p>Access logged.</p>"))
 
         if path == "/news":
             # VULNERABLE: UNION-based SQLi — two columns reflected into the page,
