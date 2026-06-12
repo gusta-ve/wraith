@@ -239,7 +239,7 @@ def cmd_run(args) -> None:
     # A code-execution finding is a foothold — point at hickok, but only when
     # there's actually a hand to play.
     if any(_is_foothold(f.title) for f in ws.findings):
-        c.info(f"a way in — deal the hand to hickok:  hickok hand {report_json}")
+        c.info(f"a way in — deal the hand to hickok:  hickok call {report_json}")
 
     if fail:
         sys.exit(2)

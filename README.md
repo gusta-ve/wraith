@@ -167,7 +167,7 @@ wraith finds and proves the way in; landing a shell and working the box is
 reads a wraith run and acts on it:
 
 ```bash
-hickok hand          # picks up wraith's latest run on its own, flags the footholds
+hickok call          # picks up wraith's latest run on its own, flags the footholds
 hickok -l 9001       # catch the reverse shell
 ```
 

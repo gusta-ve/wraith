@@ -3,6 +3,12 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.2] - 2026-06-12
+
+### Changed
+- The foothold handoff now points at `hickok call` (hickok renamed the
+  run-acting command; `hickok hand` is now its dead man's hand reveal).
+
 ## [0.6.1] - 2026-06-12
 
 ### Changed
