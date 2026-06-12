@@ -198,7 +198,9 @@ class MyPhase(Phase):
 `examples/vuln_app.py` is a deliberately vulnerable app to practise against and
 to exercise every web phase: BAC, IDOR, reflected XSS, SQLi (error/boolean/time),
 command injection, SSTI, path traversal/LFI, open redirect, CORS, insecure
-cookies and missing headers.
+cookies and missing headers. Its `/db?id=` is a boolean-blind SQLi over a real
+(tiny) SQLite database — point [hickok](https://github.com/gusta-ve/hickok)'s
+`hickok sql` at it to walk and dump it.
 
 ```bash
 python3 examples/vuln_app.py &

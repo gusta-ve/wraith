@@ -9,6 +9,7 @@ Planted issues (and the phase that finds each):
   /search?q=              reflects q unescaped             -> injection (XSS)
   /product?id=            quote triggers a SQL error       -> injection (SQLi error-based)
   /items?id=              FALSE condition empties the page -> injection (SQLi boolean-blind)
+  /db?id=                 boolean-blind SQLi over a real sqlite DB (walk it with hickok sql)
   /lookup?token=          honours an injected SQL sleep    -> injection (SQLi time-blind)
   /ping?host=             shell metachars run (sleep)      -> injection (command injection)
   /render?name=           evaluates {{a*b}} server-side    -> injection (SSTI)
@@ -23,11 +24,24 @@ Control (must NOT be flagged):
 import html
 import os
 import re
+import sqlite3
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
 PORT = int(os.environ.get("PORT", "8080"))
+
+# A real (tiny) database behind a boolean-blind SQL injection, so a tool can
+# walk it: enumerate tables/columns and dump rows. FOR LOCAL TESTING ONLY.
+_DB = sqlite3.connect(":memory:", check_same_thread=False)
+_DB_LOCK = threading.Lock()
+_DB.executescript(
+    "CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT);"
+    "INSERT INTO users VALUES (1,'admin','s3cr3t!'),(2,'alice','wonderland'),(3,'bob','hunter2');"
+    "CREATE TABLE secrets (id INTEGER PRIMARY KEY, name TEXT, value TEXT);"
+    "INSERT INTO secrets VALUES (1,'flag','HCK{the_house_always_collects}');"
+)
 
 
 def _sql_sleep(raw: str) -> None:
@@ -104,6 +118,7 @@ class Handler(BaseHTTPRequestHandler):
                 '<a href="/search?q=test">Search</a> '
                 '<a href="/product?id=1">Product</a> '
                 '<a href="/items?id=1">Items</a> '
+                '<a href="/db?id=1">DB</a> '
                 '<a href="/lookup?token=abc">Lookup</a> '
                 '<a href="/ping?host=127.0.0.1">Ping</a> '
                 '<a href="/render?name=guest">Greet</a> '
@@ -148,6 +163,19 @@ class Handler(BaseHTTPRequestHandler):
             # VULNERABLE: time-blind SQLi — output is constant, only timing leaks.
             _sql_sleep((query.get("token") or ["abc"])[0])
             return self._send(200, page("<h1>Lookup</h1><p>Token processed.</p>"))
+
+        if path == "/db":
+            # VULNERABLE: boolean-blind SQLi over a real database — the input is
+            # concatenated into a string-context query. A tool can extract data
+            # bit by bit (account active vs not) to walk the whole DB.
+            raw = (query.get("id") or ["1"])[0]
+            try:
+                with _DB_LOCK:
+                    row = _DB.execute(f"SELECT username FROM users WHERE id = '{raw}'").fetchone()
+            except Exception:
+                row = None                       # malformed query -> error swallowed
+            return self._send(200, page("<h1>Account active</h1>" if row
+                                        else "<h1>No such account</h1>"))
 
         if path == "/ping":
             # VULNERABLE: command injection — shell metacharacters execute.
