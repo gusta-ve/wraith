@@ -3,6 +3,12 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.3] - 2026-06-12
+
+### Changed
+- The wordmark is flatter — the same block letters without the heavy 3D drop
+  shadow (a lighter, more sober banner; hickok's matches).
+
 ## [0.6.2] - 2026-06-12
 
 ### Changed
