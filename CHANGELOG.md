@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.5] - 2026-06-13
+
+### Changed
+- Kept the original hooded-spectre mascot as the full art (the showdown reveal
+  and the repo hero); the banner is now a crop of its head, so it's a true
+  preview of the reveal.
+
 ## [0.6.4] - 2026-06-13
 
 ### Changed
