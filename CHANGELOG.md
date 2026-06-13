@@ -3,6 +3,12 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.10] - 2026-06-13
+
+### Changed
+- A bare `wraith` now shows the banner and a short quickstart (a few example
+  commands) instead of dumping the full help — `wraith -h` still has it all.
+
 ## [0.6.9] - 2026-06-13
 
 ### Changed

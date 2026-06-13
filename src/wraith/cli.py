@@ -13,7 +13,7 @@ from urllib.parse import urlencode, urljoin, urlsplit
 import wraith.phases  # noqa: F401  (importing populates PHASE_REGISTRY)
 from wraith import __version__
 from wraith.core import report
-from wraith.core.console import THEMES, Console
+from wraith.core.console import DIM, THEMES, Console
 from wraith.core.context import Workspace, runs_dir
 from wraith.core.engine import Engine
 from wraith.core.models import Severity
@@ -25,6 +25,22 @@ _SEVERITY_BY_NAME = {s.label.lower(): s for s in Severity}
 # Subcommands. Anything else on the command line is treated as a target for the
 # default `run` command, so `wraith example.com` works without typing `run`.
 _COMMANDS = {"run", "showdown", "phases", "login", "hand"}
+
+# A lean tutorial for the bare command — the full help lives behind -h.
+_QUICKSTART = [
+    ("wraith target.com", "scan a target — the full pipeline"),
+    ("wraith -u https://host:8443", "scan a URL (the port too)"),
+    ("wraith phases", "list the phases"),
+]
+
+
+def _quickstart(c) -> None:
+    """Banner + a few example commands (run `wraith -h` for the full help)."""
+    c.banner()
+    for cmd, desc in _QUICKSTART:
+        c.plain("  " + c._accent(cmd.ljust(30)) + c._c(DIM, desc))
+    c.plain("")
+    c.plain("  " + c._c(DIM, "wraith -h  ·  full help, every command and option"))
 
 EXAMPLES = """\
 examples:
@@ -435,13 +451,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> None:
     argv = sys.argv[1:] if argv is None else list(argv)
     parser = build_parser()
-    if not argv:                         # bare `wraith` -> banner + help, not an error
-        Console().banner()
-        parser.print_help()
+    if not argv:                         # bare `wraith` -> banner + a lean tutorial
+        _quickstart(Console())
         return
     args = parser.parse_args(_with_default_command(argv))
     if not hasattr(args, "func"):        # options but no command
-        parser.print_help()
+        _quickstart(_console(args))
         return
     try:
         args.func(args)
