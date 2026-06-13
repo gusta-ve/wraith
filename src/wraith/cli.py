@@ -14,7 +14,7 @@ import wraith.phases  # noqa: F401  (importing populates PHASE_REGISTRY)
 from wraith import __version__
 from wraith.core import report
 from wraith.core.console import THEMES, Console
-from wraith.core.context import Workspace
+from wraith.core.context import Workspace, runs_dir
 from wraith.core.engine import Engine
 from wraith.core.models import Severity
 from wraith.core.phase import PHASE_REGISTRY
@@ -49,15 +49,7 @@ class _Help(argparse.RawDescriptionHelpFormatter):
         super().__init__(prog, max_help_position=30, width=86)
 
 
-def _runs_dir() -> str:
-    """Default location for run output — a fixed per-user data dir (XDG), shared
-    with hickok so it finds runs from any working directory. Override globally
-    with WRAITH_RUNS, or per-run with --workdir."""
-    env = os.environ.get("WRAITH_RUNS")
-    if env:
-        return os.path.expanduser(env)
-    base = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
-    return os.path.join(base, "wraith", "runs")
+_runs_dir = runs_dir   # the shared run-output location (defined in wraith.core.context)
 
 
 def _normalize_target(raw):

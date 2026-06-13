@@ -3,11 +3,23 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .models import Endpoint, Finding, Host, Service, Session, Severity
+
+
+def runs_dir() -> str:
+    """Default per-user location for run output — a fixed XDG data dir, shared
+    with hickok so it finds runs from any working directory. Overridden globally
+    by $WRAITH_RUNS, or per-run by an explicit base_dir / --workdir."""
+    env = os.environ.get("WRAITH_RUNS")
+    if env:
+        return os.path.expanduser(env)
+    base = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    return os.path.join(base, "wraith", "runs")
 
 
 @dataclass
@@ -94,9 +106,9 @@ class Workspace:
         return ws
 
     @classmethod
-    def create(cls, target, base_dir="wraith-runs", scope=None) -> "Workspace":
+    def create(cls, target, base_dir=None, scope=None) -> "Workspace":
         ts = time.strftime("%Y%m%d-%H%M%S")
         safe = "".join(c if c.isalnum() or c in ".-_" else "_" for c in target)
-        workdir = Path(base_dir) / f"{safe}-{ts}"
+        workdir = Path(base_dir or runs_dir()) / f"{safe}-{ts}"
         workdir.mkdir(parents=True, exist_ok=True)
         return cls(target=target, scope=scope or [target], workdir=workdir)
