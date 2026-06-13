@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.4] - 2026-06-13
+
+### Changed
+- The banner dropped the block wordmark for the hooded spectre's head — cowl
+  and cold eyes — drawn in ASCII: the face of the tool, a preview of the full
+  mascot the showdown reveals. New full mascot (the spectre holding the dead
+  man's hand). The repo hero is the full mascot beside the name, set clean (no
+  figlet anywhere).
+
 ## [0.6.3] - 2026-06-12
 
 ### Changed

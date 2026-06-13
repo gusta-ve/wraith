@@ -1,32 +1,50 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="994" height="341" viewBox="0 0 994 341" font-family="ui-monospace,Menlo,Consolas,monospace">
-<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6a6a"/><stop offset="1" stop-color="#8a0012"/></linearGradient><linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9eef5"/><stop offset="1" stop-color="#7f95b5"/></linearGradient></defs>
-<rect width="994" height="341" rx="12" fill="#0b0d10" stroke="#1c2128"/>
-<text x="40" y="111" font-size="21" font-weight="700" fill="url(#g)" xml:space="preserve">██     ██ ██████   █████  ██ ████████ ██   ██</text>
-<text x="40" y="137" font-size="21" font-weight="700" fill="url(#g)" xml:space="preserve">██     ██ ██   ██ ██   ██ ██    ██    ██   ██</text>
-<text x="40" y="163" font-size="21" font-weight="700" fill="url(#g)" xml:space="preserve">██  █  ██ ██████  ███████ ██    ██    ███████</text>
-<text x="40" y="189" font-size="21" font-weight="700" fill="url(#g)" xml:space="preserve">██ ███ ██ ██   ██ ██   ██ ██    ██    ██   ██</text>
-<text x="40" y="215" font-size="21" font-weight="700" fill="url(#g)" xml:space="preserve"> ███ ███  ██   ██ ██   ██ ██    ██    ██   ██</text>
-<text x="664" y="50" font-size="10.5" fill="url(#b)" xml:space="preserve">                  .--::::--.</text>
-<text x="664" y="61" font-size="10.5" fill="url(#b)" xml:space="preserve">                .-=:      :=-</text>
-<text x="664" y="72" font-size="10.5" fill="url(#b)" xml:space="preserve">               -+::         :=-</text>
-<text x="664" y="82" font-size="10.5" fill="url(#b)" xml:space="preserve">              =%=.  :----.  ..==</text>
-<text x="664" y="92" font-size="10.5" fill="url(#b)" xml:space="preserve">             :#: .==-.  .-=: ..+:</text>
-<text x="664" y="103" font-size="10.5" fill="url(#b)" xml:space="preserve">            .+. ++:  .--.  :=- .+</text>
-<text x="664" y="114" font-size="10.5" fill="url(#b)" xml:space="preserve">            +:.+: -+#@@@@#*- :+.:=</text>
-<text x="664" y="124" font-size="10.5" fill="url(#b)" xml:space="preserve">           .+.*..-::-+##+:::- .*.=.</text>
-<text x="664" y="134" font-size="10.5" fill="url(#b)" xml:space="preserve">           +:+. ++...++*+...*- .+:+</text>
-<text x="664" y="145" font-size="10.5" fill="url(#b)" xml:space="preserve">          -:=:  :+=+%%--%%==+.  :=-=</text>
-<text x="664" y="156" font-size="10.5" fill="url(#b)" xml:space="preserve">         =-.+      .+*#***.      + ==</text>
-<text x="664" y="166" font-size="10.5" fill="url(#b)" xml:space="preserve">      :-=*. =-   ..:::=-=-----:.::  *+-:</text>
-<text x="664" y="176" font-size="10.5" fill="url(#b)" xml:space="preserve">     *=:  -. :: :=--:-:+-------=   =- .-+.</text>
-<text x="664" y="187" font-size="10.5" fill="url(#b)" xml:space="preserve">    +: :-  ::    =:--::+:----:=.   .  . :+</text>
-<text x="664" y="198" font-size="10.5" fill="url(#b)" xml:space="preserve">   -=   .-    .:-===-:+:-:----+   .. -.  =-</text>
-<text x="664" y="208" font-size="10.5" fill="url(#b)" xml:space="preserve">  .*. -=     :++-===+-+--:=----=-     --.:+.</text>
-<text x="664" y="218" font-size="10.5" fill="url(#b)" xml:space="preserve"> :=:   .: .::====--=+... :+--====-.. .:   .-:</text>
-<text x="664" y="229" font-size="10.5" fill="url(#b)" xml:space="preserve">:*: ::---=*--=+-+-::      ---=====-*+=::-. :*-</text>
-<text x="664" y="240" font-size="10.5" fill="url(#b)" xml:space="preserve">+:  .=+:.*::==:              ..-=+.-+.+=.-: .*</text>
-<text x="664" y="250" font-size="10.5" fill="url(#b)" xml:space="preserve">.   =:  -*.:-                    -::*  :-    .</text>
-<text x="664" y="260" font-size="10.5" fill="url(#b)" xml:space="preserve">    .   =: :-                   .- .*   .</text>
-<text x="664" y="271" font-size="10.5" fill="url(#b)" xml:space="preserve">        :  =                        =.</text>
-<text x="40" y="327" font-size="13" fill="#8b949e">offensive recon &amp; exploitation pipeline · gusta-ve</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="560" viewBox="0 0 1080 560" font-family="ui-monospace,Menlo,Consolas,monospace">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6a6a"/><stop offset="1" stop-color="#8a0012"/></linearGradient><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9eef5"/><stop offset="1" stop-color="#7f95b5"/></linearGradient></defs>
+<rect width="1080" height="560" rx="12" fill="#0b0d10" stroke="#1c2128"/>
+<text x="50" y="288" font-size="80" font-weight="700" fill="url(#g)" letter-spacing="2">wraith</text>
+<text x="54" y="322" font-size="15" fill="#8b949e">offensive recon &amp; vulnerability detection pipeline</text>
+<text x="482" y="21.1" font-size="12.0" fill="url(#a)" xml:space="preserve">                                  .-%####%-.</text>
+<text x="482" y="33.7" font-size="12.0" fill="url(#a)" xml:space="preserve">                                .+%*:    .*%*.</text>
+<text x="482" y="46.3" font-size="12.0" fill="url(#a)" xml:space="preserve">                             :-%#*:        :*%%+</text>
+<text x="482" y="58.9" font-size="12.0" fill="url(#a)" xml:space="preserve">                            =@@+-            -*@%=</text>
+<text x="482" y="71.5" font-size="12.0" fill="url(#a)" xml:space="preserve">                          +%@+.                :*@%+</text>
+<text x="482" y="84.1" font-size="12.0" fill="url(#a)" xml:space="preserve">                        :#%*                     .#%#:</text>
+<text x="482" y="96.7" font-size="12.0" fill="url(#a)" xml:space="preserve">                       #@@:                        :@%*</text>
+<text x="482" y="109.3" font-size="12.0" fill="url(#a)" xml:space="preserve">                      :%#                            %%:</text>
+<text x="482" y="121.9" font-size="12.0" fill="url(#a)" xml:space="preserve">                    :*@-                              -@*:</text>
+<text x="482" y="134.5" font-size="12.0" fill="url(#a)" xml:space="preserve">                    @#              =====+:             *@</text>
+<text x="482" y="147.1" font-size="12.0" fill="url(#a)" xml:space="preserve">                  -#@*          -#*#======*#*-          *@#-</text>
+<text x="482" y="159.7" font-size="12.0" fill="url(#a)" xml:space="preserve">                  *@-         :#%#-.       :#%#:         :@#</text>
+<text x="482" y="172.3" font-size="12.0" fill="url(#a)" xml:space="preserve">                -#%=        .#@*.            .*@#.        =%#=</text>
+<text x="482" y="184.9" font-size="12.0" fill="url(#a)" xml:space="preserve">                =@:       -*@+:                :+@*-       :@+</text>
+<text x="482" y="197.5" font-size="12.0" fill="url(#a)" xml:space="preserve">               +*+      :#%#.                     #%#:      +*+</text>
+<text x="482" y="210.1" font-size="12.0" fill="url(#a)" xml:space="preserve">               @*     .%%#:                        :#%#.     *@</text>
+<text x="482" y="222.7" font-size="12.0" fill="url(#a)" xml:space="preserve">             :=%+   :*@*-                            -*@*:   +@=:</text>
+<text x="482" y="235.3" font-size="12.0" fill="url(#a)" xml:space="preserve">             *@.   -@#-                                -#@-   .@#</text>
+<text x="482" y="247.9" font-size="12.0" fill="url(#a)" xml:space="preserve">            -#%  :%@#-   ++-                      -++   -#@%:  ##-</text>
+<text x="482" y="260.5" font-size="12.0" fill="url(#a)" xml:space="preserve">           .@*. =@*=     :%@##+                +##@%:     =*@=  +@:</text>
+<text x="482" y="273.1" font-size="12.0" fill="url(#a)" xml:space="preserve">          :+@= -*@.       -#@@@@+===:     ==-+@@@@#-       .@*- -@+:</text>
+<text x="482" y="285.7" font-size="12.0" fill="url(#a)" xml:space="preserve">          #@- .@*           -#@@@@@+.     =@@@@@#-           *@: -@#</text>
+<text x="482" y="298.3" font-size="12.0" fill="url(#a)" xml:space="preserve">          *% :%:                                              :%- ##</text>
+<text x="482" y="310.9" font-size="12.0" fill="url(#a)" xml:space="preserve">          #@:+#:                                              :#+:%#</text>
+<text x="482" y="323.5" font-size="12.0" fill="url(#a)" xml:space="preserve">          .=@*-#*=                                          =*#-+@=:</text>
+<text x="482" y="336.1" font-size="12.0" fill="url(#a)" xml:space="preserve">             -* :#*=                                      =**: +=</text>
+<text x="482" y="348.7" font-size="12.0" fill="url(#a)" xml:space="preserve">           ++:    -+*-             ..                   -*+-    .++-</text>
+<text x="482" y="361.3" font-size="12.0" fill="url(#a)" xml:space="preserve">       .:+@@@%*     :=+      :----###%#  -%@%---::     +=.     *%@@@*:.</text>
+<text x="482" y="373.9" font-size="12.0" fill="url(#a)" xml:space="preserve">      =%@*-  .:         ++++*@*==+   +@ =@===+++@@*+++=        ..  -+@%=</text>
+<text x="482" y="386.5" font-size="12.0" fill="url(#a)" xml:space="preserve">    =#@*:          +%***#+:::        =% *% :+  .. :.:##+**##.        :+@#=</text>
+<text x="482" y="399.1" font-size="12.0" fill="url(#a)" xml:space="preserve">    %%.          +@#-   -: :=:=+==:    -%#  :++=--=   :=  :*@+         .*@.</text>
+<text x="482" y="411.7" font-size="12.0" fill="url(#a)" xml:space="preserve">  -@#:           +@-  =*==+====-=-    .@+  -+--+--===+==   .@+           *@*</text>
+<text x="482" y="424.3" font-size="12.0" fill="url(#a)" xml:space="preserve"> =*+:             :@= .:=--==:==:=:   :@=   -+=--====-==  -@-             +#+:</text>
+<text x="482" y="436.9" font-size="12.0" fill="url(#a)" xml:space="preserve"> %@               .@*   =+-:==::+:   =#+: ++--==-==--+-:  +@:              #@-</text>
+<text x="482" y="449.5" font-size="12.0" fill="url(#a)" xml:space="preserve">#*-                 #%  ---+-:+=:::  *@  :--+-:=+:-+=:   ##                 =@</text>
+<text x="482" y="462.1" font-size="12.0" fill="url(#a)" xml:space="preserve">%=                  #%.   --=+:.=#  -%%  :*=-=+--++-:    %#                 -%</text>
+<text x="482" y="474.7" font-size="12.0" fill="url(#a)" xml:space="preserve">                     =@-  =+::-*:   @#    :-+=:++--++  :@=</text>
+<text x="482" y="487.3" font-size="12.0" fill="url(#a)" xml:space="preserve">                     -%+   --+:-:  .@*   -==-=+--+=-   =@-</text>
+<text x="482" y="499.9" font-size="12.0" fill="url(#a)" xml:space="preserve">                       @#  +-:=*- -#+: -++==+===+-=+  #@.</text>
+<text x="482" y="512.5" font-size="12.0" fill="url(#a)" xml:space="preserve">                       %#   ++-   +@-  -  -=:-==+=-   #%</text>
+<text x="482" y="525.1" font-size="12.0" fill="url(#a)" xml:space="preserve">                        *@  :  ...:=%###*: .:  :.   :@+</text>
+<text x="482" y="537.7" font-size="12.0" fill="url(#a)" xml:space="preserve">                        +@=:::=###*=   -#***+#@+:-::=@=</text>
+<text x="482" y="550.3" font-size="12.0" fill="url(#a)" xml:space="preserve">                         -%%@%#              .===*@@%:</text>
+<text x="54" y="534" font-size="13" fill="#6e7681" xml:space="preserve">gusta-ve · you never saw it coming</text>
 </svg>

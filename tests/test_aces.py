@@ -33,13 +33,13 @@ def test_aces_renders_art_and_phrase(capsys):
     assert "A♠" in out and "A♣" in out   # the two black aces (half the dead man's hand)
 
 
-def test_banner_is_clean_wordmark(capsys):
+def test_banner_shows_the_spectre(capsys):
     Console(color=False, banner=True).banner()
     out = capsys.readouterr().out
-    assert "█" in out                    # block wordmark
+    assert "wraith" in out               # the name label (no figlet wordmark anymore)
     assert "♣" not in out and "♥" not in out   # no cards in the banner
-    assert "WRAITH" not in out           # it's block art, not literal text
     assert "showdown mode" not in out    # the indicator only shows when the mode is on
+    assert out.count("\n") > 15          # the hooded spectre art, not just text
 
 
 def test_banner_flags_showdown_mode_when_active(capsys):

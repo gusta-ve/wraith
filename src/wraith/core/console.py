@@ -33,14 +33,6 @@ THEMES = {
 }
 DEFAULT_THEME = "crimson"
 
-WORDMARK = [
-    "██     ██ ██████   █████  ██ ████████ ██   ██",
-    "██     ██ ██   ██ ██   ██ ██    ██    ██   ██",
-    "██  █  ██ ██████  ███████ ██    ██    ███████",
-    "██ ███ ██ ██   ██ ██   ██ ██    ██    ██   ██",
-    " ███ ███  ██   ██ ██   ██ ██    ██    ██   ██",
-]
-
 SEVERITY_RGB = {
     "Critical": (255, 60, 60),
     "High": (255, 110, 95),
@@ -116,14 +108,11 @@ class Console:
     def banner(self) -> None:
         if not self.show_banner:
             return
-        c0, c1 = self.theme["grad"]
         self._emit()
-        for i, line in enumerate(WORDMARK):
-            shade = _lerp(c0, c1, i / (len(WORDMARK) - 1))
-            self._emit("  " + ((BOLD + _fg(shade) + line + RESET) if self.color else line))
+        self._glow_art("banner.txt", (150, 175, 215), (240, 245, 255))   # the hooded spectre
         self._emit()
-        self._emit("  " + self._accent("» ")
-                   + self._c(DIM, "offensive recon & vulnerability detection pipeline")
+        self._emit("  " + self._c(BOLD + _fg(self.theme["accent"]), "wraith")
+                   + self._c(DIM, "  ·  offensive recon & vulnerability detection pipeline")
                    + "   " + self._c(DIM, f"v{__version__}"))
         self._emit("  " + self._c(DIM, "gusta-ve · github.com/gusta-ve/wraith · authorized use only"))
         if self.showdown:
@@ -131,19 +120,16 @@ class Console:
                        + self._c(DIM, " — the wraith plays the catch out"))
         self._emit()
 
-    def _reaper(self) -> None:
-        """Render the hooded-wraith line-art with a pale-blue -> bright-white glow.
-
-        On a real terminal the lines are drawn one at a time, so the spectre
-        appears to descend into view. Piped or non-interactive output (logs, CI,
-        tests) gets the whole thing at once — no artificial delay.
+    def _glow_art(self, name: str, lo, hi, live: bool = False) -> None:
+        """Render a ramp-art file with a low→high glow. ``live`` draws it row by
+        row (the spectre descends into view); otherwise it lands at once (banner).
+        Piped or non-interactive output (logs, CI, tests) is never animated.
         """
         try:
-            art = (_ART_DIR / "wraith.txt").read_text(encoding="utf-8").rstrip("\n").split("\n")
+            art = (_ART_DIR / name).read_text(encoding="utf-8").rstrip("\n").split("\n")
         except OSError:
             return
-        live = self.color and sys.stdout.isatty()
-        lo, hi = (150, 175, 215), (240, 245, 255)  # pale blue -> bright white
+        draw = live and self.color and sys.stdout.isatty()
         for line in art:
             if not self.color:
                 self._emit("  " + line)
@@ -159,9 +145,12 @@ class Console:
                 run += ch
             out += self._tint(run, idx, lo, hi)
             self._emit(out)
-            if live:
+            if draw:
                 sys.stdout.flush()
                 time.sleep(0.03)  # the descent
+
+    def _reaper(self) -> None:
+        self._glow_art("wraith.txt", (150, 175, 215), (240, 245, 255), live=True)
 
     def _reveal(self, hand: str) -> None:
         """The wraith's line-art + the showdown phrase, with whatever it was holding."""
