@@ -3,6 +3,12 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.9] - 2026-06-13
+
+### Changed
+- The reveal's words now centre on the spectre's own column (measured from the
+  art), so the text lines up exactly under the figure.
+
 ## [0.6.8] - 2026-06-13
 
 ### Changed

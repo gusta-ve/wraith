@@ -153,20 +153,35 @@ class Console:
     def _reaper(self) -> None:
         self._glow_art("wraith.txt", (150, 175, 215), (240, 245, 255), live=True)
 
-    def _center(self, text: str, width: int = 80) -> str:
-        """Indent a (possibly coloured) line so its visible text centres in width —
-        used to sit the reveal's words under the centred line-art above."""
+    def _center(self, text: str, center: float = 40) -> str:
+        """Indent a (possibly coloured) line so its visible text centres on the
+        ``center`` column — used to sit the reveal's words under the line-art."""
         visible = re.sub(r"\x1b\[[0-9;]*m", "", text)
-        return " " * max(0, (width - len(visible)) // 2) + text
+        return " " * max(0, round(center - len(visible) / 2)) + text
+
+    def _art_center(self, name: str) -> float:
+        """The column the art's figure is centred on when drawn (with _reaper's
+        2-space indent), so the reveal's words can line up under it."""
+        try:
+            art = (_ART_DIR / name).read_text(encoding="utf-8").rstrip("\n").split("\n")
+        except OSError:
+            return 40
+        ne = [l for l in art if l.strip()]
+        if not ne:
+            return 40
+        left = min(len(l) - len(l.lstrip()) for l in ne)
+        right = max(len(l.rstrip()) for l in ne)
+        return 2 + (left + right) / 2
 
     def _reveal(self, hand: str) -> None:
         """The wraith's line-art + the showdown phrase, with whatever it was holding."""
+        center = self._art_center("wraith.txt")
         self._emit()
         self._reaper()
         self._emit()
-        self._emit(self._center("the wraith reveals its hand —  " + hand))
+        self._emit(self._center("the wraith reveals its hand —  " + hand, center))
         self._emit()
-        self._emit(self._center(self._c(DIM, "you never saw it coming — the wraith was already holding aces.")))
+        self._emit(self._center(self._c(DIM, "you never saw it coming — the wraith was already holding aces."), center))
         self._emit()
 
     def aces(self) -> None:
