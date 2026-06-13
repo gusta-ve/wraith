@@ -11,6 +11,7 @@ flushed as one block (see BufferedConsole), keeping concurrent phases readable.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -152,14 +153,20 @@ class Console:
     def _reaper(self) -> None:
         self._glow_art("wraith.txt", (150, 175, 215), (240, 245, 255), live=True)
 
+    def _center(self, text: str, width: int = 80) -> str:
+        """Indent a (possibly coloured) line so its visible text centres in width —
+        used to sit the reveal's words under the centred line-art above."""
+        visible = re.sub(r"\x1b\[[0-9;]*m", "", text)
+        return " " * max(0, (width - len(visible)) // 2) + text
+
     def _reveal(self, hand: str) -> None:
         """The wraith's line-art + the showdown phrase, with whatever it was holding."""
         self._emit()
         self._reaper()
         self._emit()
-        self._emit("                 the wraith reveals its hand —  " + hand)
+        self._emit(self._center("the wraith reveals its hand —  " + hand))
         self._emit()
-        self._emit("        " + self._c(DIM, "you never saw it coming — the wraith was already holding aces."))
+        self._emit(self._center(self._c(DIM, "you never saw it coming — the wraith was already holding aces.")))
         self._emit()
 
     def aces(self) -> None:

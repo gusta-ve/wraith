@@ -3,6 +3,11 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.8] - 2026-06-13
+
+### Changed
+- The reveal's words now sit centred under the line-art, instead of left-indented.
+
 ## [0.6.7] - 2026-06-13
 
 ### Changed
