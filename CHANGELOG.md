@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.7] - 2026-06-13
+
+### Changed
+- Internal cleanup: the run-output directory resolver now lives in one place
+  (`wraith.core.context.runs_dir`) and `Workspace.create()` defaults to it. No
+  change to where runs are written.
+
 ## [0.6.6] - 2026-06-13
 
 ### Changed
