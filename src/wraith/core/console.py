@@ -116,6 +116,7 @@ class Console:
                    + self._c(DIM, "  ·  offensive recon & vulnerability detection pipeline")
                    + "   " + self._c(DIM, f"v{__version__}"))
         self._emit("  " + self._c(DIM, "gusta-ve · github.com/gusta-ve/wraith · authorized use only"))
+        self._emit("  " + self._c(DIM, "holding the aces of a dead man's hand · Wild Bill, Deadwood 1876"))
         if self.showdown:
             self._emit("  " + self._accent("◆ ") + self._c(BOLD, "showdown mode")
                        + self._c(DIM, " — the wraith plays the catch out"))
@@ -182,6 +183,7 @@ class Console:
         self._emit(self._center("the wraith reveals its hand —  " + hand, center))
         self._emit()
         self._emit(self._center(self._c(DIM, "you never saw it coming — the wraith was already holding aces."), center))
+        self._emit(self._center(self._c(DIM, "the aces Wild Bill was holding — Deadwood, 1876."), center))
         self._emit()
 
     def aces(self) -> None:

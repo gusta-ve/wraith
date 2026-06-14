@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.11] - 2026-06-14
+
+### Changed
+- A nod to **Wild Bill Hickok** in the lore: the banner footer and the aces
+  reveal now name the gunslinger whose dead man's hand wraith holds half of, and
+  the README closes on it.
+
 ## [0.6.10] - 2026-06-13
 
 ### Changed
