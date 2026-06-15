@@ -188,6 +188,32 @@ def _is_foothold(title: str) -> bool:
     return any(k in t for k in _FOOTHOLD_TITLES)
 
 
+def _drive(coro, c):
+    """Run the async pipeline and turn a Ctrl-C into one clean exit.
+
+    asyncio.run() would swallow the first SIGINT and then block in its own
+    shutdown, joining the in-flight HTTP worker threads (asyncio.to_thread)
+    until they drain — so the run looks frozen and needs a second Ctrl-C, and a
+    third trips the ThreadPoolExecutor's atexit join and prints a traceback.
+    Driving the loop ourselves lets the first Ctrl-C surface at once; os._exit
+    then skips the blocking thread joins (per-phase saves already left the run
+    resumable) so there's no second press and no traceback.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    except KeyboardInterrupt:
+        c.spin_clear()
+        print("\n  [-] interrupted", file=sys.stderr)
+        sys.stderr.flush()
+        sys.stdout.flush()
+        os._exit(130)            # 128 + SIGINT; hard exit skips the thread joins
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)
+
+
 def cmd_run(args) -> None:
     c = _console(args)
     c.banner()
@@ -220,7 +246,7 @@ def cmd_run(args) -> None:
     c.info(f"phases   {', '.join(p.name for p in phases)}")
 
     engine = Engine(ws, phases, c, concurrency=args.concurrency)
-    results = asyncio.run(engine.run())
+    results = _drive(engine.run(), c)
 
     report_md = report.write_markdown(ws, results)
     report_html = report.write_html(ws, results)

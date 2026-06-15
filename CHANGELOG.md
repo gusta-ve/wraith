@@ -3,6 +3,18 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.7.1] - 2026-06-15
+
+### Fixed
+- **Ctrl-C stops a run at once — one press, no traceback.** A run mid-scan used
+  to need three Ctrl-Cs: the first froze the spinner but the run kept going (it
+  was blocked joining the in-flight HTTP worker threads in `asyncio.run`'s
+  shutdown), the second actually broke out, and the third tripped the thread-pool
+  atexit join and spilled a `concurrent.futures` traceback to the screen. The
+  pipeline now drives its own event loop, so the first Ctrl-C surfaces
+  immediately and exits clean (code 130) without waiting on or dumping the
+  worker threads. Per-phase saves already make the partial run resumable.
+
 ## [0.7.0] - 2026-06-15
 
 A detection-quality release: the injection oracles are now calibrated to each
