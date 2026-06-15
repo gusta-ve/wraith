@@ -6,9 +6,9 @@ core pipeline runs with zero third-party dependencies.
 
 from __future__ import annotations
 
-import asyncio
 import re
 
+from wraith.core.http import fetch
 from wraith.core.models import Severity
 from wraith.core.phase import Phase, register
 
@@ -81,35 +81,11 @@ class HttpProbePhase(Phase):
             console.warn("no HTTP(S) services found")
 
     async def _fetch(self, url: str):
-        try:
-            import httpx
-        except ImportError:
-            return await self._fetch_stdlib(url)
-        try:
-            async with httpx.AsyncClient(verify=False, timeout=6.0, follow_redirects=True) as client:
-                r = await client.get(url, headers={"User-Agent": "wraith/0.1"})
-                return r.status_code, r.headers.get("server", ""), self._title(r.text)
-        except Exception:
+        # Through the shared client so the opsec profile (UA/proxy/throttle) applies.
+        r = await fetch(url, timeout=6.0, allow_redirects=True, max_bytes=20000)
+        if r is None:
             return None
-
-    async def _fetch_stdlib(self, url: str):
-        import ssl
-        import urllib.request
-
-        def _sync():
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            req = urllib.request.Request(url, headers={"User-Agent": "wraith/0.1"})
-            with urllib.request.urlopen(req, timeout=6, context=ctx) as resp:
-                body = resp.read(20000).decode("utf-8", "ignore")
-                status = getattr(resp, "status", None) or resp.getcode()
-                return status, resp.headers.get("Server", ""), self._title(body)
-
-        try:
-            return await asyncio.to_thread(_sync)
-        except Exception:
-            return None
+        return r.status, r.headers.get("server", ""), self._title(r.text)
 
     @staticmethod
     def _title(html: str) -> str:

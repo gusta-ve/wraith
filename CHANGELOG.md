@@ -3,6 +3,38 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.0] - 2026-06-15
+
+A run no longer has to be a flood. Until now wraith sent every request flat out,
+from a fixed `wraith/0.1` User-Agent — loud and trivially attributable in any
+target log or WAF. This release adds an **evasion / opsec layer** so a scan can be
+paced and routed to match the footprint an authorized engagement allows.
+
+### Added
+- **`--recon` — a scan, not an attack.** Runs only the quiet phases — DNS, port
+  discovery, and HTTP service/version fingerprinting (the wraith equivalent of an
+  `nmap -sV` sweep) — and skips every attack phase (injection, content-discovery,
+  vhost, template-checks). On the bundled recorder that's **2 requests at the target
+  instead of ~104**, with none of the `/wp-login.php`-style probes. Also available
+  as the `-p recon` preset.
+- **Throttle: `--delay SEC` and `--jitter SEC`.** Space requests by a minimum
+  delay, plus an optional random jitter so the timing isn't a fixed beat. The pace
+  is enforced process-wide across all phases (concurrency drops to serial while a
+  delay is set), turning a burst into a trickle.
+- **Identity: `-A/--user-agent`, `--random-agent`, `-H/--header`, `--cookie`.** Send
+  a chosen or random real-browser User-Agent instead of `wraith/0.1`, add arbitrary
+  headers, and carry a cookie on every request.
+- **Routing: `--proxy URL` and `--tor`.** Route the whole scan through an HTTP or
+  SOCKS proxy (Burp, a SOCKS5 listener) or through Tor. SOCKS/Tor is spoken natively
+  in pure stdlib (no PySocks) with **remote DNS** (`socks5h`) so the target host
+  never leaks to the local resolver. `--tor` is **verified and fails closed** —
+  wraith confirms the exit really is Tor before sending any attack traffic, and
+  aborts rather than scan in the clear. `--check-tor` verifies the routing and exits.
+
+### Changed
+- Every phase now goes through the shared HTTP client, so the opsec profile applies
+  uniformly — `http-probe` no longer has its own hard-coded `wraith/0.1` path.
+
 ## [0.7.1] - 2026-06-15
 
 ### Fixed

@@ -70,10 +70,15 @@ ln -sf ~/.local/share/wraith-venv/bin/wraith ~/.local/bin/wraith
 wraith target.com                              # full pipeline (no subcommand needed)
 wraith -u https://target.com:8443              # target as a URL (-u/--url); the port is scanned too
 wraith 10.10.10.5 -p resolve,tcp-scan,http-probe   # only these phases
+wraith target.com --recon                      # recon only: ports + service/version, no attack traffic
 wraith target.com -P web                       # sweep HTTP/alt-HTTP ports; -P all for a full scan
 wraith target.com -s sessions.json             # adds access-control / IDOR
 wraith target.com -v                           # progress; -v 2 = attack detail (payloads/requests), -v 3 = responses
 wraith target.com -x high                      # exit code 2 on a High+ finding
+wraith target.com --delay 0.5 --jitter 0.5     # quiet: pace requests, randomise the timing
+wraith target.com --random-agent               # send a real browser UA, not wraith/<ver>
+wraith target.com --proxy http://127.0.0.1:8080  # route through Burp (or any HTTP/SOCKS proxy)
+wraith target.com --tor                        # route via Tor — verified, fails closed
 wraith --theme matrix target.com               # crimson (default) | matrix | ice | amber | mono
 wraith showdown                                # toggle "showdown mode" — wraith plays the catch out (reveal + verdict)
 wraith phases                                  # list phases and their dependencies
@@ -160,6 +165,33 @@ numeric ids surfaces IDOR. Grab a session with:
 wraith login http://target/login -u alice -p secret \
     --user-field user --pass-field password -o sessions.json
 ```
+
+## Evasion / opsec
+
+By default wraith scans flat out from a `wraith/<ver>` User-Agent — loud, and easy
+to attribute in a target's logs. For an authorized engagement where the footprint
+matters, control it:
+
+```bash
+wraith target.com --delay 0.5 --jitter 0.5     # pace requests (+ random jitter)
+wraith target.com -A "Mozilla/5.0 …"           # an explicit User-Agent
+wraith target.com --random-agent               # a random real-browser UA per run
+wraith target.com -H "X-Forwarded-For: 1.2.3.4" --cookie "session=…"
+wraith target.com --proxy socks5h://127.0.0.1:9050   # any HTTP/SOCKS proxy (Burp, …)
+wraith target.com --tor                        # route via Tor, verified
+wraith --check-tor --tor                       # just confirm the exit, then exit
+```
+
+The quietest run of all is `--recon`: it sends no attack traffic at all — just port
+discovery and service/version fingerprinting, like an `nmap -sV` (a couple of
+requests, not a wordlist of `/wp-login.php` probes). Pair it with the knobs below to
+map a target before deciding whether to bring the loud phases.
+
+`--delay` is enforced across every phase (the scan goes serial while it's set), so
+the whole run is paced, not just one phase. SOCKS/Tor is native (no PySocks) and
+resolves DNS remotely (`socks5h`) so the hostname never leaks to your resolver.
+`--tor` **fails closed**: wraith verifies the exit really is Tor before sending any
+attack traffic and aborts otherwise, so a misconfigured run can't deanonymise you.
 
 ## Post-exploitation — [hickok](https://github.com/gusta-ve/hickok)
 

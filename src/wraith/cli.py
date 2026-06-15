@@ -138,11 +138,26 @@ def _save_config(cfg: dict) -> None:
         pass
 
 
+# Phase presets for -p. "recon" is the quiet set: DNS, port discovery and
+# service/version fingerprinting — the wraith equivalent of an nmap -sV sweep —
+# with none of the attack phases (no injection, content-discovery, vhost or
+# template-checks), so it touches the target like a scan, not an attack.
+_PHASE_PRESETS = {
+    "recon": ["resolve", "tcp-scan", "http-probe", "tech-detect"],
+}
+
+
 def _select(names):
     if not names:
         return [cls() for cls in PHASE_REGISTRY.values()]
-    chosen = []
+    expanded = []
     for n in names:
+        expanded.extend(_PHASE_PRESETS.get(n, [n]))
+    chosen, seen = [], set()
+    for n in expanded:
+        if n in seen:                        # a preset may overlap an explicit name
+            continue
+        seen.add(n)
         cls = PHASE_REGISTRY.get(n)
         if not cls:
             raise SystemExit(f"unknown phase: {n} (see `wraith phases`)")
@@ -214,9 +229,58 @@ def _drive(coro, c):
         asyncio.set_event_loop(None)
 
 
+def _parse_headers(items):
+    """Turn -H 'Key: Value' strings into a dict (last wins on a repeat)."""
+    out = {}
+    for raw in items or []:
+        k, sep, v = raw.partition(":")
+        if sep and k.strip():
+            out[k.strip()] = v.strip()
+    return out
+
+
+def _apply_opsec(args, c) -> None:
+    """Build the process-wide opsec profile from the CLI and verify routing before
+    any attack traffic. Handles --check-tor (verify and exit) and --tor fail-closed."""
+    from wraith.core import http as _http
+
+    ua = args.user_agent or (_http.random_agent() if args.random_agent else None)
+    try:
+        _http.configure(user_agent=ua, headers=_parse_headers(args.header), cookie=args.cookie,
+                        proxy=args.proxy, tor=args.tor, delay=args.delay, jitter=args.jitter)
+    except _http.TorError as exc:
+        c.bad(str(exc))
+        sys.exit(2)
+
+    if args.check_tor:                       # verify the routing is anonymising, then exit
+        if _http.check_tor():
+            c.good("Tor/proxy confirmed — traffic exits through it")
+            sys.exit(0)
+        c.bad("NOT anonymised — could not confirm the exit (is Tor/the proxy up?)")
+        sys.exit(2)
+
+    if args.tor or args.proxy:
+        c.info(f"routing through {'Tor' if args.tor else args.proxy}")
+    if args.tor:                             # fail closed: never scan in the clear if Tor is unconfirmed
+        c.info("verifying Tor exit…")
+        if not _http.check_tor():
+            c.bad("Tor exit not confirmed — refusing to send in the clear (fail closed)")
+            sys.exit(2)
+        c.good("Tor confirmed")
+
+    if args.delay or args.jitter:
+        note = f"~{args.delay:g}s" + (f" +0..{args.jitter:g}s jitter" if args.jitter else "")
+        c.info(f"throttled — {note} between requests")
+        if args.concurrency == 8:            # the untouched default — pacing only works serial
+            args.concurrency = 1
+    if ua:
+        c.info(f"user-agent  {ua}")
+
+
 def cmd_run(args) -> None:
     c = _console(args)
     c.banner()
+    _apply_opsec(args, c)
 
     raw = args.target or args.url
     if not raw:
@@ -224,7 +288,14 @@ def cmd_run(args) -> None:
         sys.exit(2)
     target, port = _normalize_target(raw)
 
-    phases = _select(args.phases.split(",") if args.phases else None)
+    if args.phases:
+        names = args.phases.split(",")
+    elif getattr(args, "recon", False):
+        names = ["recon"]
+        c.info("recon mode — ports + service/version only, no attack traffic")
+    else:
+        names = None
+    phases = _select(names)
     ws = Workspace.create(target, base_dir=args.workdir)
     if getattr(args, "ports", None):      # explicit port spec replaces the default list
         from wraith.phases.tcp_scan import parse_ports
@@ -420,7 +491,10 @@ def _scan_options() -> argparse.ArgumentParser:
     g = sp.add_argument_group("scan options")
     g.add_argument("-u", "--url", metavar="TARGET",
                    help="hostname, IP or URL to scan (or pass it positionally)")
-    g.add_argument("-p", "--phases", metavar="LIST", help="comma-separated subset of phases (default: all)")
+    g.add_argument("-p", "--phases", metavar="LIST",
+                   help="comma-separated subset of phases, or the preset 'recon' (default: all)")
+    g.add_argument("--recon", action="store_true",
+                   help="recon only — ports + service/version, no attack traffic (≈ nmap -sV)")
     g.add_argument("-P", "--ports", metavar="SPEC",
                    help="ports to scan: list/ranges (80,443,8000-8100) or a keyword "
                         "(top | web | all). Default: top. Combines with a host:port pin.")
@@ -439,21 +513,44 @@ def _scan_options() -> argparse.ArgumentParser:
     return sp
 
 
+def _opsec_options() -> argparse.ArgumentParser:
+    """Evasion / opsec — control wraith's footprint on the target so a run can be
+    paced and routed instead of a flood that lights up every WAF and log."""
+    op = argparse.ArgumentParser(add_help=False)
+    g = op.add_argument_group("evasion / opsec")
+    g.add_argument("--delay", metavar="SEC", type=float, default=0.0,
+                   help="minimum seconds between requests — paces the scan (default: 0, full speed)")
+    g.add_argument("--jitter", metavar="SEC", type=float, default=0.0,
+                   help="add a random 0..SEC on top of --delay, so the timing isn't a fixed beat")
+    g.add_argument("-A", "--user-agent", metavar="UA", help="explicit User-Agent (default: wraith/<ver>)")
+    g.add_argument("--random-agent", action="store_true", help="use a random real browser User-Agent")
+    g.add_argument("-H", "--header", action="append", metavar="'K: V'",
+                   help="extra request header, repeatable")
+    g.add_argument("--cookie", metavar="STR", help="Cookie header sent on every request")
+    g.add_argument("--proxy", metavar="URL",
+                   help="route through http://host:port or socks5h://host:port (Burp, a SOCKS proxy)")
+    g.add_argument("--tor", action="store_true",
+                   help="route via Tor (socks5h://127.0.0.1:9050), verified — fails closed")
+    g.add_argument("--check-tor", action="store_true",
+                   help="just verify Tor/proxy is anonymising you, then exit")
+    return op
+
+
 def build_parser() -> argparse.ArgumentParser:
-    common, scan = _output_options(), _scan_options()
+    common, scan, opsec = _output_options(), _scan_options(), _opsec_options()
     p = argparse.ArgumentParser(
         prog="wraith",
         description="Offensive recon & vulnerability detection pipeline.  Run is the default: "
                     "`wraith TARGET` or `wraith -u TARGET`.",
         epilog=EXAMPLES,
         formatter_class=_Help,
-        parents=[common, scan],
+        parents=[common, scan, opsec],
     )
     p.add_argument("--version", action="version", version=f"wraith {__version__}")
     sub = p.add_subparsers(dest="command", metavar="<command>")
 
     run = sub.add_parser("run", help="scan a target (default command)", epilog=EXAMPLES,
-                         formatter_class=_Help, parents=[common, scan],
+                         formatter_class=_Help, parents=[common, scan, opsec],
                          description="Run the phase pipeline against a target.")
     run.add_argument("target", nargs="?", help="hostname, IP or URL (or use -u/--url)")
     run.set_defaults(func=cmd_run)
