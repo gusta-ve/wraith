@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.4] - 2026-06-15
+
+### Changed
+- Moved the repo/authorized-use line to a succinct footer at the foot of the banner
+  (`github.com/gusta-ve/wraith · authorized use only`), keeping the header to the
+  title and the Deadwood tagline.
+
 ## [0.8.3] - 2026-06-15
 
 ### Changed

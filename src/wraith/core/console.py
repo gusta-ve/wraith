@@ -120,6 +120,8 @@ class Console:
             self._emit("  " + self._accent("◆ ") + self._c(BOLD, "showdown mode")
                        + self._c(DIM, " — the wraith plays the catch out"))
         self._emit()
+        self._emit("  " + self._c(DIM, "github.com/gusta-ve/wraith · authorized use only"))
+        self._emit()
 
     def _glow_art(self, name: str, lo, hi, live: bool = False) -> None:
         """Render a ramp-art file with a low→high glow. ``live`` draws it row by
