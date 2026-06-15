@@ -207,6 +207,15 @@ python3 examples/vuln_app.py &
 wraith 127.0.0.1 -s examples/sessions.json -v
 ```
 
+For a bigger, leveled target — a whole town of rooms, tutorial to impossible —
+there's [**deadwood**](https://github.com/gusta-ve/deadwood), the dedicated
+practice range for wraith and hickok:
+
+```bash
+pipx install deadwood-sec && deadwood serve   # http://127.0.0.1:8666
+wraith 127.0.0.1:8666 -v
+```
+
 ## Tests
 
 ```bash
