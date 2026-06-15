@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.12] - 2026-06-15
+
+### Fixed
+- `http-probe` now probes **any open port** the scan found — trying HTTP then
+  HTTPS — instead of only a fixed list of web ports. A web service on a
+  non-standard port (a dev server, an admin panel, a local range on `:8666`) used
+  to be skipped, which made the whole web pipeline report "no HTTP services" and
+  find nothing. Now it's scanned like any other.
+
 ## [0.6.11] - 2026-06-14
 
 ### Changed

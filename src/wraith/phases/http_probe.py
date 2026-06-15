@@ -27,48 +27,58 @@ class HttpProbePhase(Phase):
     requires = frozenset({"tcp-scan"})
     description = "Probe HTTP(S) services for status, server and title."
 
+    @staticmethod
+    def _schemes_for(port: int) -> list:
+        """A known web port uses its scheme; any other open port is tried as HTTP
+        then HTTPS — web services run on non-standard ports all the time."""
+        return [HTTP_PORTS[port]] if port in HTTP_PORTS else ["http", "https"]
+
     async def run(self, ws, console) -> None:
         # tcp-scan finds services keyed by IP, but real sites virtual-host on a
         # name (SNI + Host header). If we know the original hostname, probe by
         # that instead — probing the raw IP fails TLS on every modern host. This
         # also dedupes the IPv4/IPv6 pair of the same service down to one probe.
         hostname = next((h.value for h in ws.hosts if h.kind == "hostname"), None)
-        targets, seen = [], set()
+        # A known web port uses its scheme; any *other* open port the scan found is
+        # tried as HTTP then HTTPS — web services live on non-standard ports all the
+        # time (dev servers, admin panels, ranges), so we don't skip a port just
+        # because it isn't 80/443.
+        probes, seen = [], set()
         for s in ws.services:
-            if s.port not in HTTP_PORTS:
-                continue
             host = hostname or s.host
             key = (host, s.port)
             if key in seen:
                 continue
             seen.add(key)
-            targets.append((host, s.port, HTTP_PORTS[s.port]))
-        if not targets:
-            console.warn("no HTTP(S) services found")
-            return
+            probes.append((host, s.port, self._schemes_for(s.port)))
 
-        for host, port, scheme in targets:
-            url = f"{scheme}://{host}:{port}/"
-            result = await self._fetch(url)
-            if result is None:
-                console.warn(f"{url} no response")
-                continue
-            status, server, title = result
-            ws.add_endpoint(url, "GET", status, title=title, server=server)
-            console.good(
-                f"{url} → {status}"
-                + (f"  [{server}]" if server else "")
-                + (f"  {title}" if title else "")
-            )
-            if server:
-                ws.add_finding(
-                    title=f"Server banner disclosed: {server}",
-                    severity=Severity.INFO,
-                    phase=self.name,
-                    target=url,
-                    evidence=f"Server: {server}",
-                    description="The HTTP Server header discloses software/version information.",
+        found = False
+        for host, port, schemes in probes:
+            for scheme in schemes:
+                url = f"{scheme}://{host}:{port}/"
+                result = await self._fetch(url)
+                if result is None:
+                    continue
+                status, server, title = result
+                found = True
+                ws.add_endpoint(url, "GET", status, title=title, server=server)
+                console.good(
+                    f"{url} → {status}"
+                    + (f"  [{server}]" if server else "")
+                    + (f"  {title}" if title else "")
                 )
+                if server:
+                    ws.add_finding(
+                        title=f"Server banner disclosed: {server}",
+                        severity=Severity.INFO,
+                        phase=self.name,
+                        target=url,
+                        evidence=f"Server: {server}",
+                        description="The HTTP Server header discloses software/version information.",
+                    )
+                break               # got HTTP on this port; don't try the other scheme
+        if not found:
+            console.warn("no HTTP(S) services found")
 
     async def _fetch(self, url: str):
         try:
