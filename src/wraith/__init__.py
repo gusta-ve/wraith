@@ -1,3 +1,3 @@
 """wraith — offensive recon & vulnerability detection pipeline."""
 
-__version__ = "0.8.2"
+__version__ = "0.8.3"

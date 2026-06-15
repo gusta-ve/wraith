@@ -115,7 +115,7 @@ class Console:
         self._emit("  " + self._c(BOLD + _fg(self.theme["accent"]), "wraith")
                    + self._c(DIM, "  ·  offensive recon & vulnerability detection pipeline")
                    + "   " + self._c(DIM, f"v{__version__}"))
-        self._emit("  " + self._c(DIM, "holding the aces of a dead man's hand · Wild Bill, Deadwood 1876"))
+        self._emit("  " + self._c(DIM, "Wild Bill Hickok · Deadwood, 1876"))
         if self.showdown:
             self._emit("  " + self._accent("◆ ") + self._c(BOLD, "showdown mode")
                        + self._c(DIM, " — the wraith plays the catch out"))
