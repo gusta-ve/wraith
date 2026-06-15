@@ -70,6 +70,7 @@ ln -sf ~/.local/share/wraith-venv/bin/wraith ~/.local/bin/wraith
 wraith target.com                              # full pipeline (no subcommand needed)
 wraith -u https://target.com:8443              # target as a URL (-u/--url); the port is scanned too
 wraith 10.10.10.5 -p resolve,tcp-scan,http-probe   # only these phases
+wraith target.com -P web                       # sweep HTTP/alt-HTTP ports; -P all for a full scan
 wraith target.com -s sessions.json             # adds access-control / IDOR
 wraith target.com -v                           # progress; -v 2 = attack detail (payloads/requests), -v 3 = responses
 wraith target.com -x high                      # exit code 2 on a High+ finding

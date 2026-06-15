@@ -28,11 +28,12 @@ confirmation step live.
 from __future__ import annotations
 
 import asyncio
+import html
 import random
 import re
 import string
 import time
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 
 from wraith.core import web
 from wraith.core.http import fetch
@@ -79,10 +80,18 @@ _CMDI_TIME = [
     ("cmdi/subshell",  "1$(sleep {s})"),
     ("cmdi/backtick",  "1`sleep {s}`"),
 ]
-# Boolean-blind: (TRUE, FALSE) pairs in three quoting contexts.
+# Boolean-blind: (TRUE, FALSE) pairs. Each pair differs by a single character so
+# a reflected echo cancels in the core and only the query's truth value shows.
+# OR-pairs flip row *presence* even when the base value matches nothing (a login
+# / username check); AND-pairs flip it when the base value is itself a matching
+# row (a product/article id). Both run, in string, numeric and double-quote
+# contexts — the one that fits the query wins.
 _SQLI_BOOL = [
+    ("1' OR '1'='1",  "1' OR '1'='2"),
     ("1' AND '1'='1", "1' AND '1'='2"),
+    ("1 OR 1=1",      "1 OR 1=2"),
     ("1 AND 1=1",     "1 AND 1=2"),
+    ('1" OR "1"="1',  '1" OR "1"="2'),
     ('1" AND "1"="1', '1" AND "1"="2'),
 ]
 # Parameters that are framework plumbing or anti-CSRF tokens, never the vuln —
@@ -110,29 +119,95 @@ _LFI_PAYLOADS = [
 
 
 # ------------------------------------------------------- oracles (pure, tested)
+def _sim(a, b) -> float:
+    """Similarity of two response bodies (0..1), capped for speed."""
+    import difflib
+    return difflib.SequenceMatcher(None, (a or "")[:4000], (b or "")[:4000]).ratio()
+
+
+def _echo_strip(body: str, *values) -> str:
+    """Remove the reflected payload (raw, HTML-escaped and URL-encoded) from a
+    body before comparing it.
+
+    A page that echoes the parameter back (a search box, a form that re-renders
+    your input, an error that quotes it) would otherwise look "different" just
+    because the payloads differ — which is reflection, not a SQL reaction. The
+    echo is usually HTML-escaped (`'` → `&#x27;`), so the raw string alone won't
+    catch it. Stripping every form leaves only the part of the page the *query*
+    changed, so the comparison measures the vulnerability and not the input."""
+    out = body or ""
+    for v in values:
+        if not v:
+            continue
+        for form in (v, html.escape(v), html.escape(v, quote=True), quote(v)):
+            out = out.replace(form, "")
+    return out
+
+
+def _core(a: str, b: str):
+    """The differing middles of two strings — common prefix and suffix removed."""
+    i, n = 0, min(len(a), len(b))
+    while i < n and a[i] == b[i]:
+        i += 1
+    j = 0
+    while j < n - i and a[-1 - j] == b[-1 - j]:
+        j += 1
+    return a[i:len(a) - j], b[i:len(b) - j]
+
+
+def core_sim(a: str, b: str) -> float:
+    """Similarity of just the reacting cores of two bodies (common chrome
+    stripped). A tiny tell in a big page is as visible as a big one, so the
+    measure doesn't drown as the surrounding page grows — the fix that lets a
+    boolean oracle see a one-line verdict flip inside kilobytes of layout."""
+    ca, cb = _core(a or "", b or "")
+    if not ca and not cb:
+        return 1.0
+    return _sim(ca, cb)
+
+
+def _margin(noise: float, k: float = 3.0, floor: float = 0.02) -> float:
+    """How far below the page's own noise a reaction has to fall to count.
+
+    `noise` is how similar two identical requests are to each other — a static
+    page is ~1.0, a dynamic one lower. The gate scales with the slack the page
+    naturally has: a calm page reacts at the slightest divergence, a noisy one
+    only to a big one. This is the per-target calibration that fixed-threshold
+    oracles lack (a 0.91 break is real on a calm page, noise on a busy one)."""
+    return max(floor, k * (1.0 - noise))
+
+
+def relative_break(noise: float, broke_sim: float, restore_sims) -> bool:
+    """SQLi without an error string, calibrated to the target: an odd quote
+    diverges from the baseline *further than the page's own noise* while a valid
+    SQL continuation (`1''`, `1 AND 1=1`, `1-- -`) restores it to roughly the
+    baseline. Comparing against the page's measured noise — not a fixed 0.9 —
+    is what catches a small-but-real break in a big chrome page."""
+    if noise <= 0:
+        return False                       # no stable baseline to compare against
+    gate = noise - _margin(noise)
+    if broke_sim >= gate:
+        return False                       # the quote didn't break anything real
+    return any(s >= gate for s in restore_sims)
+
+
+def boolean_blind_hit(noise_core: float, tf_core_sim: float) -> bool:
+    """TRUE and FALSE differ in their reacting core beyond the page's own
+    core-level noise — the injected truth value changed the response.
+
+    The TRUE/FALSE payloads are chosen to differ by a single character (`=1` vs
+    `=2`), so a reflected echo cancels and only the *query's* effect survives in
+    the core. A non-injectable parameter returns identical cores (similarity 1.0)
+    and never fires; a real boolean oracle drops far below the gate whether the
+    tell is a one-word verdict or a whole table of rows."""
+    if tf_core_sim is None:
+        return False
+    gate = min(0.9, noise_core - 0.02)
+    return tf_core_sim < gate
+
+
 def looks_like_sql_error(text: str) -> bool:
     return bool(_SQL_ERRORS.search(text or ""))
-
-
-def sqli_quote_break(base: str, broken: str, restores, diff: float = 0.9,
-                     restore: float = 0.95) -> bool:
-    """SQLi without an error string: an odd quote clearly changes the response
-    (often a blank/short page when the app swallows the DB exception) while a
-    syntactically-valid continuation restores the original. `restores` are the
-    bodies of valid follow-ups (`1''`, `1 AND 1=1`, `1-- -`) covering string and
-    numeric contexts — any one restoring proves the quote broke SQL, not just
-    that the param dislikes odd input. The diff check keeps reflective params
-    (which barely change) from firing."""
-    import difflib
-
-    def sim(a, b):
-        return difflib.SequenceMatcher(None, (a or "")[:4000], (b or "")[:4000]).ratio()
-
-    if not (base or "").strip():
-        return False                       # no stable baseline to compare against
-    if sim(broken, base) >= diff:
-        return False                       # the quote didn't break anything
-    return any(sim(r, base) >= restore for r in restores)
 
 
 def lfi_signature(text: str) -> str | None:
@@ -156,15 +231,18 @@ def ssti_payloads(a: int, b: int) -> list[tuple[str, str]]:
     ]
 
 
-def ssti_evaluated(text: str, product: int, expr: str) -> bool:
-    """The product is present and the raw expression is gone -> it was evaluated."""
-    text = text or ""
-    return str(product) in text and expr not in text
+def ssti_evaluated(text: str, product: int, payload: str) -> bool:
+    """The product survives once the reflected payload is stripped -> a template
+    engine computed it, rather than the page merely echoing the expression back.
 
-
-def boolean_blind_hit(sim_true: float, sim_false: float) -> bool:
-    """TRUE keeps the page (~ the normal one); FALSE breaks clearly away."""
-    return sim_true >= 0.95 and sim_false <= 0.90
+    Apps commonly re-render the submitted value in a form field, so the raw
+    expression (`43*41`) is present in the response *even when it was also
+    evaluated* — the old `expr not in text` guard then rejected a real hit (the
+    Cipher level is exactly this). Removing the echoed payload first (raw,
+    HTML-escaped, URL-encoded — the same reflection-cancelling strip the boolean
+    oracle uses) leaves only what the engine produced; a random 4-digit product
+    surviving there can't be reflection."""
+    return str(product) in _echo_strip(text or "", payload)
 
 
 def timing_hit(base_t: float, elapsed: float, slept: float, frac: float = 0.6) -> bool:
@@ -194,11 +272,11 @@ class InjectionPhase(Phase):
     requires = frozenset({"http-probe"})
     description = "XSS, SQLi (error/boolean/time), command injection, SSTI, LFI, open redirect."
 
-    MAX_PAGES = 25
-    MAX_POINTS = 60
+    MAX_PAGES = 60
+    MAX_POINTS = 80
     POINT_CONCURRENCY = 16  # parameters tested in parallel (overlaps remote latency)
     REQ_TIMEOUT = 6.0       # per-probe timeout — a stalled request fails fast, not the queue
-    TIMING_POINTS = 10      # time-based probes are slow; cap how many points get them
+    TIMING_POINTS = 16      # time-based probes are slow; cap how many points get them
     SLEEP_FAST = 3          # initial time-based probe
     SLEEP_CONFIRM = 6       # confirmation sleep — must delay proportionally more
 
@@ -224,6 +302,10 @@ class InjectionPhase(Phase):
                     if key not in seen:
                         seen.add(key)
                         points.append(pt)
+            # Test the likeliest data parameters first, and let them — not a wall
+            # of submit/flag form fields — claim the capped budgets (MAX_POINTS,
+            # and especially the slow time-based subset).
+            points.sort(key=self._point_priority)
             points = points[: self.MAX_POINTS]
             if not points:
                 console.warn(f"{base}: no injectable parameters found")
@@ -306,35 +388,53 @@ class InjectionPhase(Phase):
     async def _test_sqli_error(self, ws, console, pt) -> bool:
         # One probe set, two oracles: a quote that errors (string leak) and a
         # quote that *breaks the response* (app swallows the error, returns blank).
+        # Two identical baselines measure the page's own noise, so the break test
+        # is calibrated to this target instead of a fixed threshold.
         base = await self._send(pt, "1")
+        base2 = await self._send(pt, "1")
         broken = await self._send(pt, "1'")
-        if not (base and broken):
+        if not (base and base2 and broken):
             return False
         if looks_like_sql_error(base.text):
             return False                   # baseline already errors — can't tell
-        broke = self._similar(broken.text, base.text) < 0.9
+        bclean = _echo_strip(base.text, "1")
+        noise = _sim(bclean, _echo_strip(base2.text, "1"))
+        broke_sim = _sim(_echo_strip(broken.text, "1'"), bclean)
+        broke = relative_break(noise, broke_sim, [noise])  # provisional (no restores yet)
         console.trace(f"sqli/quote broken_err={looks_like_sql_error(broken.text)} "
-                      f"sim(broken,base)={self._similar(broken.text, base.text):.2f} broke={broke}", level=2)
+                      f"noise={noise:.3f} sim(broken,base)={broke_sim:.3f} broke={broke}", level=2)
 
         # (a) error-based: a single quote raises a DB error a balanced one clears.
+        #     Try several "valid" continuations — `1''` is balanced in a string
+        #     context but still errors in a numeric one, so a single fixed clearer
+        #     would miss numeric injection.
         if looks_like_sql_error(broken.text):
-            balanced = await self._send(pt, "1''")
-            if balanced and not looks_like_sql_error(balanced.text):
-                self._report(ws, console, "SQL Injection (error-based)", Severity.HIGH, pt, "1'",
-                             "A single quote raised a database error that a balanced quote clears — "
-                             "the query is built from unsanitised input.")
-                return True
+            for clear in ("1''", "1-- -", "1 AND 1=1"):
+                balanced = await self._send(pt, clear)
+                if balanced and not looks_like_sql_error(balanced.text):
+                    self._report(ws, console, "SQL Injection (error-based)", Severity.HIGH, pt, "1'",
+                                 "A single quote raised a database error that a valid continuation "
+                                 f"({clear!r}) clears — the query is built from unsanitised input.")
+                    return True
 
         # (b) breakage-based: the odd quote breaks the response; a valid SQL
         #     continuation restores it — SQLi even when no error text leaks.
+        #     The continuations are SQL-*distinctive* on purpose: `1 AND 1=1` is
+        #     valid in both numeric (`id=1 AND 1=1`) and string (`'1 AND 1=1'`)
+        #     context, and `1-- -` comments the rest of the query away. A balanced
+        #     `1''` is deliberately *not* used here — a shell command (`ping … 1''`
+        #     collapses `''` to nothing) or any fragile non-SQL parser restores on
+        #     it too, which is exactly what made an OS-command-injection point
+        #     (deadwood's back-door) double-report as blind SQLi. Requiring a
+        #     SQL-only continuation to restore keeps the real SQLi and drops that.
         if broke:
-            restores = []
-            for payload in ("1''", "1 AND 1=1", "1-- -"):   # string + numeric contexts
+            restore_sims = []
+            for payload in ("1 AND 1=1", "1-- -"):   # SQL-distinctive, numeric + string
                 r = await self._send(pt, payload)
-                restores.append(r.text if r else "")
-                if self._similar(restores[-1], base.text) >= 0.95:
+                restore_sims.append(_sim(_echo_strip(r.text if r else "", payload), bclean))
+                if restore_sims[-1] >= noise - _margin(noise):
                     break                  # one restore is enough
-            if sqli_quote_break(base.text, broken.text, restores):
+            if relative_break(noise, broke_sim, restore_sims):
                 console.trace("sqli/quote broke and a valid continuation restored — CONFIRMED", level=2)
                 self._report(ws, console, "SQL Injection (blind — broken response)", Severity.HIGH, pt, "1'",
                              "A single quote breaks the response while a valid SQL continuation "
@@ -344,27 +444,33 @@ class InjectionPhase(Phase):
 
     # ----------------------------------------------------- SQLi boolean-blind
     async def _test_sqli_boolean(self, ws, console, pt) -> bool:
-        benign = await self._send(pt, pt.values.get(pt.param) or "1")
-        if benign is None or not (200 <= benign.status < 300):
+        bval = pt.values.get(pt.param) or "1"
+        benign = await self._send(pt, bval)
+        benign2 = await self._send(pt, bval)
+        if benign is None or benign2 is None or not (200 <= benign.status < 300):
             return False
+        # Two identical baselines give the page's own core-level noise, so the
+        # gate is calibrated to this target (a dynamic core needs a bigger signal).
+        noise_core = core_sim(_echo_strip(benign.text, bval), _echo_strip(benign2.text, bval))
         # Try every quoting context (string, numeric, double-quote) as a probe —
-        # the right one for the query matters (a numeric `1' AND ...` just breaks
-        # a numeric column and looks like nothing).
+        # the right one for the query matters (a string `1 OR 1=1` is inert inside
+        # quotes, a numeric `1' OR ...` just errors).
         for true_v, false_v in _SQLI_BOOL:
             rt = await self._send(pt, true_v)
             rf = await self._send(pt, false_v)
             if not (rt and rf):
                 continue
-            sim_t = self._similar(rt.text, benign.text)
-            sim_f = self._similar(rf.text, benign.text)
-            console.trace(f"sqli/bool [{true_v!r}] true~normal={sim_t:.2f} false~normal={sim_f:.2f}", level=2)
-            if not boolean_blind_hit(sim_t, sim_f):
+            tf = core_sim(_echo_strip(rt.text, true_v), _echo_strip(rf.text, false_v))
+            console.trace(f"sqli/bool [{true_v!r}] noise_core={noise_core:.3f} "
+                          f"true~false(core)={tf:.3f}", level=2)
+            if not boolean_blind_hit(noise_core, tf):
                 continue
             # Confirm the same divergence reproduces (guards a one-off content blip).
             ct = await self._send(pt, true_v)
             cf = await self._send(pt, false_v)
-            if (ct and cf and boolean_blind_hit(self._similar(ct.text, benign.text),
-                                                self._similar(cf.text, benign.text))):
+            if ct and cf and boolean_blind_hit(
+                noise_core, core_sim(_echo_strip(ct.text, true_v), _echo_strip(cf.text, false_v)),
+            ):
                 console.trace("confirm sqli/bool reproduced — CONFIRMED", level=2)
                 self._report(ws, console, "SQL Injection (boolean blind)", Severity.HIGH, pt,
                              f"{true_v}  /  {false_v}",
@@ -454,11 +560,12 @@ class InjectionPhase(Phase):
         # Something evaluated — find which engine and confirm with a fresh product.
         for engine, payload in ssti_payloads(a, b):
             r = await self._send(pt, payload)
-            if r is None or not ssti_evaluated(r.text, product, expr):
+            if r is None or not ssti_evaluated(r.text, product, payload):
                 continue
             c, d = random.randint(41, 99), random.randint(41, 99)
-            r2 = await self._send(pt, payload.replace(expr, f"{c}*{d}"))
-            ok = r2 is not None and ssti_evaluated(r2.text, c * d, f"{c}*{d}")
+            payload2 = payload.replace(expr, f"{c}*{d}")
+            r2 = await self._send(pt, payload2)
+            ok = r2 is not None and ssti_evaluated(r2.text, c * d, payload2)
             console.trace(f"ssti/{engine} eval={product} confirm={'CONFIRMED' if ok else 'discarded'}", level=2)
             if ok:
                 self._report(ws, console, "Server-Side Template Injection", Severity.HIGH, pt, payload,
@@ -512,10 +619,18 @@ class InjectionPhase(Phase):
                        target=pt.action, evidence=f"{where} payload={payload!r}", description=desc)
 
     # -------------------------------------------------------------- helpers
-    @staticmethod
-    def _similar(a, b) -> float:
-        import difflib
-        return difflib.SequenceMatcher(None, (a or "")[:4000], (b or "")[:4000]).ratio()
+    # Form fields that submit an answer/flag rather than feed a query — real on a
+    # CTF or a contact form, but the last thing worth a slow timing probe.
+    _LOW_VALUE_PARAMS = frozenset({"flag", "answer", "submit", "captcha", "honeypot"})
+
+    @classmethod
+    def _point_priority(cls, pt):
+        """Sort key (lower = tested first): cheap GET query params before form
+        bodies, narrow forms before wide ones, and obvious submit/flag fields
+        last — so the capped budgets land on real data parameters."""
+        low = 1 if pt.param.lower() in cls._LOW_VALUE_PARAMS else 0
+        loc = 0 if pt.location == "query" else 1
+        return (low, loc, len(pt.values))
 
     @staticmethod
     def _bases(ws) -> list:

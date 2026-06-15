@@ -1,16 +1,20 @@
 from wraith.phases.injection import (
     REDIRECT_PARAMS,
+    InjectionPhase,
+    _echo_strip,
     _skip_param,
     boolean_blind_hit,
+    core_sim,
     looks_like_sql_error,
     lfi_signature,
+    relative_break,
     ssti_evaluated,
-    sqli_quote_break,
     ssti_payloads,
     timing_confirms,
     timing_hit,
     timing_too_noisy,
 )
+from wraith.core.web import Point
 
 
 def test_sql_error_detection_covers_mssql_and_dotnet():
@@ -19,18 +23,37 @@ def test_sql_error_detection_covers_mssql_and_dotnet():
     assert looks_like_sql_error("Conversion failed when converting the varchar value") is True
 
 
-def test_sqli_quote_break_detects_swallowed_error():
-    full = "<html>" + "x" * 4000 + "</html>"
-    blank = ""
-    # quote breaks the page to blank; a valid continuation restores it -> SQLi
-    assert sqli_quote_break(full, blank, [blank, full]) is True   # numeric restore works
-    assert sqli_quote_break(full, blank, [full]) is True          # string restore works
-    # reflective param: broken barely differs from base -> not a break
-    assert sqli_quote_break(full + "1", full + "1'", [full + "1''"]) is False
-    # broke but NOTHING restored it -> not the quote's doing
-    assert sqli_quote_break(full, blank, [blank, blank, blank]) is False
-    # no baseline -> can't judge
-    assert sqli_quote_break("", "", [""]) is False
+def test_relative_break_is_calibrated_to_page_noise():
+    # calm page (noise 1.0): the quote diverged hard (0.10) and a continuation
+    # restored it (0.99) -> a real, swallowed-error break
+    assert relative_break(1.0, 0.10, [0.10, 0.99]) is True
+    # a *small* break on a calm page still counts (the fixed-0.9 oracle missed
+    # exactly this — a tiny data tell in a big chrome page)
+    assert relative_break(1.0, 0.91, [0.99]) is True
+    # noisy page (noise 0.80): 0.91 is within the page's own slack -> not a break
+    assert relative_break(0.80, 0.91, [0.99]) is False
+    # broke but nothing restored near the baseline -> not the quote's doing
+    assert relative_break(1.0, 0.10, [0.10, 0.12]) is False
+    # no stable baseline -> can't judge
+    assert relative_break(0.0, 0.10, [0.99]) is False
+
+
+def test_echo_strip_removes_reflected_payloads():
+    body = "<p>results for 1' AND '1'='1 here</p>"
+    assert "1' AND '1'='1" not in _echo_strip(body, "1' AND '1'='1")
+    # two pages that differ only by the reflected payload collapse to equal
+    a = _echo_strip("hi 1' AND '1'='1 bye", "1' AND '1'='1")
+    b = _echo_strip("hi 1' AND '1'='2 bye", "1' AND '1'='2")
+    assert a == b
+
+
+def test_point_priority_orders_data_params_before_flag_forms():
+    q = Point("GET", "http://h/app", {"id": "1"}, "id", "query")
+    form = Point("POST", "http://h/level", {"flag": "1"}, "flag", "body")
+    wide = Point("POST", "http://h/c", {"a": "1", "b": "2", "c": "3"}, "a", "body")
+    ordered = sorted([form, wide, q], key=InjectionPhase._point_priority)
+    assert ordered[0] is q          # cheap GET query param first
+    assert ordered[-1] is form      # flag-submission field last
 
 
 def test_timing_too_noisy_guards_jittery_targets():
@@ -65,13 +88,20 @@ def test_lfi_signature():
     assert lfi_signature("<html>nothing here</html>") is None
 
 
-def test_ssti_evaluated_needs_product_without_expression():
-    # the engine evaluated it: product present, expression gone
-    assert ssti_evaluated("Welcome 1763", 1763, "43*41") is True
-    # merely reflected: the expression came back verbatim -> not a hit
-    assert ssti_evaluated("Welcome 43*41", 1763, "43*41") is False
+def test_ssti_evaluated_sees_product_past_a_reflected_payload():
+    # the engine evaluated it: the product is present
+    assert ssti_evaluated("Welcome 1763", 1763, "{{43*41}}") is True
+    # merely reflected: only the payload came back, no product -> not a hit
+    assert ssti_evaluated("Welcome {{43*41}}", 1763, "{{43*41}}") is False
+    # the form re-renders the submitted payload *and* the engine evaluated it —
+    # the product must still register even though the expression is echoed back
+    # (the old `expr not in text` guard wrongly rejected this; the Cipher level)
+    echoed = '<input value="{{43*41}}"><div>Hello, 1763!</div>'
+    assert ssti_evaluated(echoed, 1763, "{{43*41}}") is True
+    # HTML-escaped echo of the payload shouldn't leave a stray product either
+    assert ssti_evaluated('value="{{43*41}}"', 1763, "{{43*41}}") is False
     # neither -> not a hit
-    assert ssti_evaluated("Welcome guest", 1763, "43*41") is False
+    assert ssti_evaluated("Welcome guest", 1763, "{{43*41}}") is False
 
 
 def test_ssti_payloads_cover_common_engines():
@@ -82,12 +112,26 @@ def test_ssti_payloads_cover_common_engines():
 
 
 def test_boolean_blind_hit():
-    # TRUE looks normal, FALSE diverges -> injectable
-    assert boolean_blind_hit(0.99, 0.40) is True
-    # both look the same as normal -> not a signal
-    assert boolean_blind_hit(0.99, 0.99) is False
-    # TRUE itself doesn't match normal -> noisy, not a clean signal
-    assert boolean_blind_hit(0.80, 0.10) is False
+    # TRUE/FALSE cores diverge (verdict flip, or rows vs no rows) -> injectable,
+    # regardless of how small the tell is relative to the whole page
+    assert boolean_blind_hit(1.0, 0.24) is True     # whispers: one-word verdict flip
+    assert boolean_blind_hit(1.0, 0.0) is True      # first-blood: rows vs none
+    # identical cores -> a non-injectable parameter -> no signal
+    assert boolean_blind_hit(1.0, 1.0) is False
+    assert boolean_blind_hit(1.0, 0.95) is False    # within the gate, not a flip
+    # a noisy core (dynamic content where it reacts) demands a bigger divergence:
+    # gate tracks the noise, so a probe no more divergent than the page itself
+    # doesn't fire
+    assert boolean_blind_hit(0.50, 0.60) is False
+
+
+def test_core_sim_isolates_the_reacting_region():
+    chrome_a = "<html>" + "x" * 2000 + "VERDICT-OK" + "y" * 2000 + "</html>"
+    chrome_b = "<html>" + "x" * 2000 + "DENIED!!!!" + "y" * 2000 + "</html>"
+    # whole-page similarity barely moves; core similarity exposes the flip
+    assert core_sim(chrome_a, chrome_b) < 0.5
+    # identical pages -> core empty -> perfectly similar
+    assert core_sim(chrome_a, chrome_a) == 1.0
 
 
 def test_timing_hit():

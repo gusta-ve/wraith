@@ -3,6 +3,55 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.7.0] - 2026-06-15
+
+A detection-quality release: the injection oracles are now calibrated to each
+target instead of leaning on fixed similarity thresholds, port scanning reaches
+beyond a fixed common-port list, and two long-standing detection gaps are closed.
+Shaken out by co-evolving against the [deadwood](https://github.com/gusta-ve/deadwood)
+range — every web-injection level it ships now resolves to the right vector.
+
+### Added
+- **`-P/--ports` — scan any ports, not just the built-in common list.** Takes a
+  list and ranges (`80,443,8000-8100`) or a keyword: `top` (the common list,
+  default), `web` (a broad HTTP/alt-HTTP sweep), or `all`/`1-65535` (every port —
+  the only way to find a service on a genuinely arbitrary port). A `host:port` pin
+  is still always added on top. A connect scan can only find a port it probes, so
+  an odd one (a dev server, a local range on `:8666`) needs `-P web` or `-P all`.
+- The default common-port list grew a clutch of frequently-seen HTTP/alt-HTTP and
+  service ports (`81`, `88`, `8008`, `8088`, `8888`, `9090`, `9443`, `10000`, …).
+
+### Changed
+- **Boolean-blind SQLi detection is now calibrated to the target instead of fixed
+  thresholds.** Two identical baseline requests measure the page's own noise, and
+  the TRUE/FALSE comparison runs on just the *reacting core* of the response (common
+  chrome stripped) — so a one-line verdict flip (`Welcome` vs `Invalid`) inside
+  kilobytes of layout reads as clearly as a whole-table change. The TRUE/FALSE
+  payloads now differ by a single character (`=1` vs `=2`) so a reflected echo
+  cancels in the core, and the probe set covers `OR`/`AND` pairs in string, numeric
+  and double-quote contexts — `OR`-pairs flip row presence on a login/username check
+  where the base value matches nothing (the case the old oracle missed entirely).
+- The **broken-response** SQLi oracle is calibrated the same way: an odd quote has
+  to diverge from the baseline *beyond the page's measured noise* (not a fixed 0.9),
+  and a valid continuation restore it — catching a small-but-real break in a big page
+  without firing on a dynamic one.
+- Injectable points are **prioritised**: cheap GET query params before form bodies,
+  narrow forms before wide, and obvious `submit`/`flag`/`captcha` fields last — so
+  the capped budgets (and the slow time-based subset) land on real data parameters.
+  Crawl/point budgets raised (`MAX_PAGES` 25→60, `MAX_POINTS` 60→80, timing 10→16).
+
+### Fixed
+- **SSTI is no longer missed when the app reflects the payload.** A form that
+  re-renders your input echoes the raw expression (`{{43*41}}`) back even when the
+  engine also evaluated it — the old `expr not in text` guard then rejected the real
+  hit. The reflected payload (raw, HTML-escaped, URL-encoded) is now stripped before
+  checking for the product, so a genuine evaluation registers regardless of echo.
+- **An OS-command-injection point no longer double-reports as blind SQLi.** The
+  broken-response oracle now restores only through SQL-*distinctive* continuations
+  (`1 AND 1=1`, `1-- -`) — a shell command (`ping … 1''` collapses `''` to nothing)
+  satisfied the old balanced-quote restore and was flagged as SQLi on top of the
+  real Command Injection finding.
+
 ## [0.6.12] - 2026-06-15
 
 ### Fixed

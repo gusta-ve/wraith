@@ -47,6 +47,8 @@ examples:
   wraith example.com                     full scan — `run` is the default command
   wraith -u https://example.com          same, target given with -u/--url
   wraith example.com -p tcp-scan,http-probe   only these phases
+  wraith 127.0.0.1 -P web                 sweep HTTP/alt-HTTP ports (finds odd ones, e.g. 8666)
+  wraith 127.0.0.1 -P 1-65535             full port scan — find a service on any port
   wraith example.com -s sessions.json    add Broken Access Control / IDOR
   wraith example.com -v                  narrate the attack: payloads, oracles, confirmations
   wraith example.com -x high             exit 2 if a High+ finding turns up
@@ -198,6 +200,13 @@ def cmd_run(args) -> None:
 
     phases = _select(args.phases.split(",") if args.phases else None)
     ws = Workspace.create(target, base_dir=args.workdir)
+    if getattr(args, "ports", None):      # explicit port spec replaces the default list
+        from wraith.phases.tcp_scan import parse_ports
+        resolved = parse_ports(args.ports)
+        if not resolved:
+            c.bad(f"--ports {args.ports!r}: no valid ports")
+            sys.exit(2)
+        ws.meta["ports"] = resolved
     if port:                              # a URL/host:port pins an extra port to scan
         ws.meta["extra_ports"] = [port]
     if args.sessions:
@@ -386,6 +395,9 @@ def _scan_options() -> argparse.ArgumentParser:
     g.add_argument("-u", "--url", metavar="TARGET",
                    help="hostname, IP or URL to scan (or pass it positionally)")
     g.add_argument("-p", "--phases", metavar="LIST", help="comma-separated subset of phases (default: all)")
+    g.add_argument("-P", "--ports", metavar="SPEC",
+                   help="ports to scan: list/ranges (80,443,8000-8100) or a keyword "
+                        "(top | web | all). Default: top. Combines with a host:port pin.")
     g.add_argument("-s", "--sessions", metavar="FILE", help="sessions JSON — enables access-control / IDOR")
     g.add_argument("-w", "--wordlist", metavar="FILE", help="wordlist for content-discovery")
     g.add_argument("-t", "--templates", metavar="DIR", help="extra template-checks directory")
