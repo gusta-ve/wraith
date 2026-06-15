@@ -3,6 +3,12 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.2] - 2026-06-15
+
+### Changed
+- Dropped the `gusta-ve · github.com/… · authorized use only` credit line from the
+  banner — the title and the Deadwood tagline stay.
+
 ## [0.8.1] - 2026-06-15
 
 ### Added
