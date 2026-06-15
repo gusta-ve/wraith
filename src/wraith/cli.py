@@ -244,6 +244,16 @@ def _apply_opsec(args, c) -> None:
     any attack traffic. Handles --check-tor (verify and exit) and --tor fail-closed."""
     from wraith.core import http as _http
 
+    if getattr(args, "ghost", False):        # the max-opsec preset: fill in each piece unless set
+        c.info("ghost mode — Tor (fail-closed) · random UA · low-and-slow · serial")
+        args.tor = True
+        if not args.user_agent:
+            args.random_agent = True
+        if not args.delay:
+            args.delay = 0.5
+        if not args.jitter:
+            args.jitter = 0.5
+
     ua = args.user_agent or (_http.random_agent() if args.random_agent else None)
     try:
         _http.configure(user_agent=ua, headers=_parse_headers(args.header), cookie=args.cookie,
@@ -518,6 +528,9 @@ def _opsec_options() -> argparse.ArgumentParser:
     paced and routed instead of a flood that lights up every WAF and log."""
     op = argparse.ArgumentParser(add_help=False)
     g = op.add_argument_group("evasion / opsec")
+    g.add_argument("--ghost", action="store_true",
+                   help="max-opsec preset: Tor (fail-closed) + random UA + delay/jitter + serial — "
+                        "the safest footprint for an attack (override any piece with its own flag)")
     g.add_argument("--delay", metavar="SEC", type=float, default=0.0,
                    help="minimum seconds between requests — paces the scan (default: 0, full speed)")
     g.add_argument("--jitter", metavar="SEC", type=float, default=0.0,

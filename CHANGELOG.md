@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.1] - 2026-06-15
+
+### Added
+- **`--ghost` — one flag for the safest footprint.** A max-opsec preset that turns
+  on the whole stealth stack at once: routes through **Tor (verified, fail-closed)**,
+  sends a **random real-browser User-Agent**, paces requests **low-and-slow**
+  (delay + jitter) and goes **serial**. Any piece can still be overridden with its
+  own flag (e.g. `--ghost --delay 2`). The same flag and meaning land in
+  [hickok](https://github.com/gusta-ve/hickok), so a stealth run is one word in both.
+
 ## [0.8.0] - 2026-06-15
 
 A run no longer has to be a flood. Until now wraith sent every request flat out,

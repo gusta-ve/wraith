@@ -79,6 +79,7 @@ wraith target.com --delay 0.5 --jitter 0.5     # quiet: pace requests, randomise
 wraith target.com --random-agent               # send a real browser UA, not wraith/<ver>
 wraith target.com --proxy http://127.0.0.1:8080  # route through Burp (or any HTTP/SOCKS proxy)
 wraith target.com --tor                        # route via Tor — verified, fails closed
+wraith target.com --ghost                      # max-opsec preset: Tor + random UA + low-and-slow, one flag
 wraith --theme matrix target.com               # crimson (default) | matrix | ice | amber | mono
 wraith showdown                                # toggle "showdown mode" — wraith plays the catch out (reveal + verdict)
 wraith phases                                  # list phases and their dependencies
@@ -173,6 +174,7 @@ to attribute in a target's logs. For an authorized engagement where the footprin
 matters, control it:
 
 ```bash
+wraith target.com --ghost                      # the safest footprint, one flag: Tor + random UA + low-and-slow
 wraith target.com --delay 0.5 --jitter 0.5     # pace requests (+ random jitter)
 wraith target.com -A "Mozilla/5.0 …"           # an explicit User-Agent
 wraith target.com --random-agent               # a random real-browser UA per run
@@ -192,6 +194,11 @@ the whole run is paced, not just one phase. SOCKS/Tor is native (no PySocks) and
 resolves DNS remotely (`socks5h`) so the hostname never leaks to your resolver.
 `--tor` **fails closed**: wraith verifies the exit really is Tor before sending any
 attack traffic and aborts otherwise, so a misconfigured run can't deanonymise you.
+
+Don't want to remember the knobs? `--ghost` is the one-flag preset for the safest
+footprint — Tor (fail-closed), a random browser UA, low-and-slow pacing and serial
+requests, all at once. Override any single piece with its own flag (`--ghost --delay
+2`). The same flag works in [hickok](https://github.com/gusta-ve/hickok).
 
 ## Post-exploitation — [hickok](https://github.com/gusta-ve/hickok)
 
