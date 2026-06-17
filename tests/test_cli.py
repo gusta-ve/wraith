@@ -1,4 +1,10 @@
-from wraith.cli import _is_foothold, _normalize_target, _runs_dir, _with_default_command
+from wraith.cli import (
+    _is_foothold,
+    _normalize_target,
+    _runs_dir,
+    _select,
+    _with_default_command,
+)
 
 
 def test_runs_dir_honours_env_then_xdg(monkeypatch, tmp_path):
@@ -53,3 +59,20 @@ def test_help_and_version_pass_through_untouched():
     assert _with_default_command(["--help"]) == ["--help"]
     assert _with_default_command(["--version"]) == ["--version"]
     assert _with_default_command([]) == []
+
+
+def test_select_pulls_in_phase_dependencies():
+    # `-p injection` alone used to be skipped for an unmet requirement; now the
+    # whole resolve→tcp-scan→http-probe chain it needs comes along, deps first.
+    names = [p.name for p in _select(["injection"])]
+    assert "injection" in names
+    for dep in ("resolve", "tcp-scan", "http-probe"):
+        assert dep in names
+    assert names.index("http-probe") < names.index("injection")
+    assert names.index("resolve") < names.index("tcp-scan")
+
+
+def test_select_unknown_phase_errors():
+    import pytest
+    with pytest.raises(SystemExit):
+        _select(["not-a-phase"])

@@ -16,6 +16,17 @@ _SEV_COLOR = {
 }
 
 
+def _md_cell(value) -> str:
+    """Escape a value for a Markdown table cell: an unescaped ``|`` would open a
+    new column and a newline would break the row. Evidence and titles carry
+    payloads (a `cmdi` probe like ``1| sleep 3`` has both), so this matters."""
+    return str(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
+
+
+def _md_row(*cells) -> str:
+    return "| " + " | ".join(_md_cell(c) for c in cells) + " |"
+
+
 def write_markdown(ws, results, path=None) -> Path:
     path = Path(path) if path else ws.workdir / "report.md"
     lines: list[str] = []
@@ -32,24 +43,24 @@ def write_markdown(ws, results, path=None) -> Path:
     if ws.services:
         lines += ["## Services", "", "| Host | Port | Service | Product |", "|------|------|---------|---------|"]
         for s in sorted(ws.services, key=lambda x: (x.host, x.port)):
-            lines.append(f"| {s.host} | {s.port}/{s.proto} | {s.name or '-'} | {s.product or '-'} |")
+            lines.append(_md_row(s.host, f"{s.port}/{s.proto}", s.name or "-", s.product or "-"))
         lines.append("")
 
     if ws.endpoints:
         lines += ["## Web endpoints", "", "| URL | Status | Server | Title |", "|-----|--------|--------|-------|"]
         for e in ws.endpoints:
-            lines.append(f"| {e.url} | {e.status} | {e.server or '-'} | {(e.title or '-')[:60]} |")
+            lines.append(_md_row(e.url, e.status, e.server or "-", (e.title or "-")[:60]))
         lines.append("")
 
     if ws.findings:
         lines += ["## Findings", "", "| Severity | Title | Target | Phase |", "|----------|-------|--------|-------|"]
         for f in sorted(ws.findings, key=lambda x: int(x.severity), reverse=True):
-            lines.append(f"| {f.severity.label} | {f.title} | {f.target or '-'} | {f.phase or '-'} |")
+            lines.append(_md_row(f.severity.label, f.title, f.target or "-", f.phase or "-"))
         lines.append("")
 
     lines += ["## Pipeline", "", "| Phase | Status | Findings | Time (s) |", "|-------|--------|----------|----------|"]
     for r in results:
-        lines.append(f"| {r.name} | {r.status} | {r.findings_added} | {r.duration:.2f} |")
+        lines.append(_md_row(r.name, r.status, r.findings_added, f"{r.duration:.2f}"))
     lines.append("")
 
     path.write_text("\n".join(lines), encoding="utf-8")

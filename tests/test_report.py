@@ -29,3 +29,14 @@ def test_html_report(tmp_path):
     assert "Broken Access Control" in html_text
     assert "<table" in html_text
     assert "High" in html_text
+
+
+def test_markdown_escapes_pipes_in_cells(tmp_path):
+    # a payload-bearing target ("...?host=1| sleep 3") must not break the table.
+    ws = Workspace.create("example.com", base_dir=str(tmp_path))
+    ws.add_finding("Command Injection in 'host'", Severity.CRITICAL, phase="injection",
+                   target="http://h/ping?host=1| sleep 3")
+    text = report.write_markdown(ws, []).read_text()
+    row = next(ln for ln in text.splitlines() if "Command Injection" in ln and ln.startswith("|"))
+    assert "\\|" in row                              # the payload's pipe was escaped
+    assert row.count("|") - row.count("\\|") == 5    # still a clean four-column row

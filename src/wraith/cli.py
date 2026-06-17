@@ -147,22 +147,36 @@ _PHASE_PRESETS = {
 }
 
 
+def _resolve_deps(names):
+    """Expand phase names to include everything they (transitively) require,
+    dependencies first. Selecting `injection` thus also pulls in the
+    `resolve → tcp-scan → http-probe` chain it needs, instead of the engine
+    silently skipping it for an unmet requirement."""
+    ordered, seen = [], set()
+
+    def add(name, stack):
+        if name in seen or name in stack:    # already pulled in, or a cycle (shouldn't happen)
+            return
+        cls = PHASE_REGISTRY.get(name)
+        if not cls:
+            raise SystemExit(f"unknown phase: {name} (see `wraith phases`)")
+        for dep in sorted(cls.requires):
+            add(dep, stack | {name})
+        seen.add(name)
+        ordered.append(name)
+
+    for n in names:
+        add(n, frozenset())
+    return ordered
+
+
 def _select(names):
     if not names:
         return [cls() for cls in PHASE_REGISTRY.values()]
     expanded = []
     for n in names:
         expanded.extend(_PHASE_PRESETS.get(n, [n]))
-    chosen, seen = [], set()
-    for n in expanded:
-        if n in seen:                        # a preset may overlap an explicit name
-            continue
-        seen.add(n)
-        cls = PHASE_REGISTRY.get(n)
-        if not cls:
-            raise SystemExit(f"unknown phase: {n} (see `wraith phases`)")
-        chosen.append(cls())
-    return chosen
+    return [PHASE_REGISTRY[n]() for n in _resolve_deps(expanded)]
 
 
 def cmd_phases(args) -> None:
@@ -281,7 +295,7 @@ def _apply_opsec(args, c) -> None:
     if args.delay or args.jitter:
         note = f"~{args.delay:g}s" + (f" +0..{args.jitter:g}s jitter" if args.jitter else "")
         c.info(f"throttled — {note} between requests")
-        if args.concurrency == 8:            # the untouched default — pacing only works serial
+        if args.concurrency is None:         # not set explicitly — pacing only works serial
             args.concurrency = 1
     if ua:
         c.info(f"user-agent  {ua}")
@@ -326,7 +340,8 @@ def cmd_run(args) -> None:
     c.info(f"workdir  {ws.workdir}")
     c.info(f"phases   {', '.join(p.name for p in phases)}")
 
-    engine = Engine(ws, phases, c, concurrency=args.concurrency)
+    concurrency = args.concurrency if args.concurrency is not None else 8
+    engine = Engine(ws, phases, c, concurrency=concurrency)
     results = _drive(engine.run(), c)
 
     report_md = report.write_markdown(ws, results)
@@ -513,7 +528,7 @@ def _scan_options() -> argparse.ArgumentParser:
     g.add_argument("-t", "--templates", metavar="DIR", help="extra template-checks directory")
     g.add_argument("-x", "--fail-on", metavar="SEV", choices=list(_SEVERITY_BY_NAME),
                    help="exit 2 on a finding at/above SEV (info|low|medium|high|critical)")
-    g.add_argument("-c", "--concurrency", metavar="N", type=int, default=8,
+    g.add_argument("-c", "--concurrency", metavar="N", type=int, default=None,
                    help="max phases running in parallel (default: 8)")
     g.add_argument("--workdir", metavar="DIR", default=_runs_dir(),
                    help="output directory (default: ~/.local/share/wraith/runs, or $WRAITH_RUNS)")

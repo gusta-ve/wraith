@@ -43,3 +43,28 @@ def test_builtin_templates_are_valid():
     for t in templates:
         assert t.get("id") and t.get("info", {}).get("severity")
         assert t.get("requests")
+
+
+def test_bad_matcher_skips_one_template_without_killing_the_phase(tmp_path, monkeypatch):
+    import asyncio
+
+    from wraith.core.context import Workspace
+
+    async def fake_fetch(url, **kw):
+        return Response(200, url, "anything", {})
+
+    monkeypatch.setattr(tc, "fetch", fake_fetch)
+
+    class _C:                       # a console that only needs warn/finding here
+        def warn(self, *a):
+            pass
+
+        def finding(self, *a):
+            pass
+
+    ws = Workspace.create("h", base_dir=str(tmp_path))
+    broken = {"id": "broken", "info": {"name": "broken", "severity": "high"},
+              "requests": [{"path": "/", "matchers": [{"type": "regex", "regex": ["("]}]}]}
+    # the unbalanced regex raises re.error mid-evaluate; the phase must swallow it
+    asyncio.run(tc.TemplateChecksPhase()._run_template(ws, _C(), "http://h", broken))
+    assert ws.findings == []        # no crash, and no bogus finding

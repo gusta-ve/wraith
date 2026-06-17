@@ -3,6 +3,28 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.7] - 2026-06-16
+
+### Changed
+- **Selecting a phase pulls in the phases it needs.** `-p injection` (or any
+  phase with prerequisites) used to be skipped for an unmet requirement and do
+  nothing; the subset now expands to include the transitive `requires` chain
+  (`resolve → tcp-scan → http-probe → injection`), dependencies first.
+- **`--concurrency` only forces serial when you didn't set it.** Throttling
+  (`--delay`/`--jitter`) still drops to one request at a time, but an explicit
+  `-c N` is now honoured instead of being indistinguishable from the default 8.
+- **The direct (httpx) request path honours `max_bytes`.** It streams and stops
+  once it has enough rather than pulling a whole body just to truncate it — the
+  same transfer cap the proxied stdlib path already applied.
+
+### Fixed
+- **A malformed template no longer kills the template-checks phase.** An invalid
+  matcher (e.g. a bad regex) in one user-supplied template is reported and
+  skipped, leaving the rest of the templates to run.
+- **Markdown reports survive payload characters.** Table cells escape `|` (and
+  newlines), so a finding whose evidence carries a pipe — a `cmdi` probe like
+  `1| sleep 3` — can't break the table layout. The HTML report already escaped.
+
 ## [0.8.6] - 2026-06-16
 
 ### Fixed

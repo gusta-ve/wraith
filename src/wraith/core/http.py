@@ -271,13 +271,23 @@ async def fetch(url, cookies=None, headers=None, method="GET", timeout=8.0,
         async with httpx.AsyncClient(
             verify=False, timeout=timeout, follow_redirects=allow_redirects, cookies=cookies or {}
         ) as client:
-            r = await client.request(method, url, headers=_merge_headers(headers), data=data)
-            return Response(
-                status=r.status_code,
-                url=str(r.url),
-                text=r.text[:max_bytes],
-                headers={k.lower(): v for k, v in r.headers.items()},
-            )
+            # Stream and stop at max_bytes so the direct path honours the same
+            # transfer cap the stdlib path does — a huge body isn't pulled in full
+            # just to be truncated (it matters under a throttled/opsec run).
+            async with client.stream(method, url, headers=_merge_headers(headers), data=data) as r:
+                chunks, total = [], 0
+                async for chunk in r.aiter_bytes():
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if total >= max_bytes:
+                        break
+                text = b"".join(chunks)[:max_bytes].decode(r.encoding or "utf-8", "ignore")
+                return Response(
+                    status=r.status_code,
+                    url=str(r.url),
+                    text=text,
+                    headers={k.lower(): v for k, v in r.headers.items()},
+                )
     except Exception:
         return None
 

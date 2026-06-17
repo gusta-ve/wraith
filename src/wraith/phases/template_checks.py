@@ -135,7 +135,13 @@ class TemplateChecksPhase(Phase):
             r = await fetch(url, method=req.get("method", "GET"), allow_redirects=False)
             if r is None:
                 continue
-            if evaluate(req.get("matchers", []), req.get("matchers-condition", "and"), r):
+            try:
+                matched = evaluate(req.get("matchers", []), req.get("matchers-condition", "and"), r)
+            except Exception as exc:           # a malformed matcher (e.g. a bad regex) in a
+                console.warn(f"template '{tpl.get('id')}' has an invalid matcher ({exc}); "
+                             "skipping it")    # user-supplied template must not kill the phase
+                return
+            if matched:
                 info = tpl.get("info", {})
                 sev = _SEV.get(str(info.get("severity", "info")).lower(), Severity.INFO)
                 name = info.get("name", tpl.get("id", "template"))
