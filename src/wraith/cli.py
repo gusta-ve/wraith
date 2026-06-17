@@ -12,7 +12,7 @@ from urllib.parse import urlencode, urljoin, urlsplit
 
 import wraith.phases  # noqa: F401  (importing populates PHASE_REGISTRY)
 from wraith import __version__
-from wraith.core import report
+from wraith.core import report, search
 from wraith.core.console import DIM, THEMES, Console
 from wraith.core.context import Workspace, runs_dir
 from wraith.core.engine import Engine
@@ -24,7 +24,7 @@ _SEVERITY_BY_NAME = {s.label.lower(): s for s in Severity}
 
 # Subcommands. Anything else on the command line is treated as a target for the
 # default `run` command, so `wraith example.com` works without typing `run`.
-_COMMANDS = {"run", "showdown", "phases", "login", "hand"}
+_COMMANDS = {"run", "showdown", "phases", "login", "hand", "dork"}
 
 # A lean tutorial for the bare command — the full help lives behind -h.
 _QUICKSTART = [
@@ -57,6 +57,18 @@ examples:
 
 run `wraith phases` to see the pipeline; phases run concurrently by dependency.
 landing a shell is hickok's job — wraith's companion: github.com/gusta-ve/hickok
+"""
+
+DORK_EXAMPLES = """\
+examples:
+  wraith dork "inurl:login"                  a raw dork
+  wraith dork --params                       URLs with injectable params (SQLi/IDOR candidates)
+  wraith dork --params --site target.com     the same, scoped to an authorized target
+  wraith dork --files --max 50 -o urls.txt   exposed files, save the list
+
+discovery only — `dork` lists URLs and never touches them; testing them is the
+separate, deliberate `wraith <url>` step. Configure a backend first (env):
+  WRAITH_SEARXNG_URL  ·  WRAITH_GOOGLE_API_KEY + WRAITH_GOOGLE_CX  ·  WRAITH_BRAVE_API_KEY
 """
 
 
@@ -295,7 +307,9 @@ def _apply_opsec(args, c) -> None:
     if args.delay or args.jitter:
         note = f"~{args.delay:g}s" + (f" +0..{args.jitter:g}s jitter" if args.jitter else "")
         c.info(f"throttled — {note} between requests")
-        if args.concurrency is None:         # not set explicitly — pacing only works serial
+        # not set explicitly -> serial (pacing only works serial); guarded so
+        # commands without scan options (e.g. `dork`) don't trip on the attr.
+        if hasattr(args, "concurrency") and args.concurrency is None:
             args.concurrency = 1
     if ua:
         c.info(f"user-agent  {ua}")
@@ -479,6 +493,50 @@ def cmd_login(args) -> None:
         print(text)
 
 
+def cmd_dork(args) -> None:
+    """Discover URLs from a search engine using a dork. Lists results only — it
+    never sends a request to them (testing is the separate `wraith <url>` step)."""
+    c = _console(args)
+    c.banner()
+    _apply_opsec(args, c)
+
+    presets = [name for name, on in (
+        ("params", args.params), ("files", args.files),
+        ("panels", args.panels), ("listing", args.listing)) if on]
+    try:
+        query = search.build_query(args.query or "", presets, args.site or "")
+    except ValueError as exc:
+        c.bad(str(exc))
+        sys.exit(2)
+    if not query:
+        c.bad("nothing to search — give a query, a preset (--params/--files/…), or --site")
+        sys.exit(2)
+
+    c.info(f"dork   {query}")
+    if not args.site:
+        c.warn("no --site scope — discovery only; only test hosts you're authorized to")
+
+    try:
+        results, engine = _drive(search.search(
+            query, engine=args.engine or "", max_results=args.max, site=args.site or "",
+            searx_url=args.searx_url or "",
+            on_page=lambda e, p, n: c.trace(f"{e} page {p}: {n} result(s)", level=1),
+        ), c)
+    except search.SearchError as exc:
+        c.bad(str(exc))
+        sys.exit(2)
+
+    if not results:
+        c.warn("no results (check the dork, the backend config, or try another --engine)")
+        return
+    c.good(f"{len(results)} URL(s) via {engine}")
+    for r in results:
+        c.plain("  " + r.url)
+    if args.output:
+        Path(args.output).write_text("\n".join(r.url for r in results) + "\n", encoding="utf-8")
+        c.info(f"saved {len(results)} URL(s) → {args.output}")
+
+
 def cmd_showdown(args) -> None:
     """Toggle showdown mode on/off — it sticks between runs. While on, every run
     that finds a vulnerability reveals the wraith (more mode behaviour to come)."""
@@ -604,6 +662,28 @@ def build_parser() -> argparse.ArgumentParser:
     lg.add_argument("--name", metavar="NAME", default="user", help="session name for the output")
     lg.add_argument("--role", metavar="ROLE", default="low", help="session role (none/low/med/high)")
     lg.set_defaults(func=cmd_login)
+
+    dk = sub.add_parser("dork", help="find URLs with a search-engine dork (discovery only — never scans them)",
+                        formatter_class=_Help, parents=[common, opsec], epilog=DORK_EXAMPLES,
+                        description="Discover URLs from a search engine using a dork. It lists results "
+                                    "only — it never sends a request to them. Configure a backend via env: "
+                                    "WRAITH_SEARXNG_URL, or WRAITH_GOOGLE_API_KEY+WRAITH_GOOGLE_CX, or "
+                                    "WRAITH_BRAVE_API_KEY.")
+    dk.add_argument("query", nargs="?", help="the search query / dork (e.g. 'inurl:login')")
+    dg = dk.add_argument_group("dork presets (combine with a query and/or each other)")
+    dg.add_argument("--params", "--injec", dest="params", action="store_true",
+                    help="URLs with injectable-looking parameters — SQLi/IDOR candidates")
+    dg.add_argument("--files", action="store_true", help="exposed files (.env/.bak/.sql/.log/…)")
+    dg.add_argument("--panels", action="store_true", help="login / admin panels")
+    dg.add_argument("--listing", action="store_true", help='open directory listings (intitle:"index of")')
+    do = dk.add_argument_group("dork options")
+    do.add_argument("--site", metavar="DOMAIN", help="scope results to a domain (site:DOMAIN + post-filter)")
+    do.add_argument("--engine", choices=list(search.ENGINES), help="search backend (default: first configured)")
+    do.add_argument("--searx-url", metavar="URL", dest="searx_url",
+                    help="SearXNG instance URL (or WRAITH_SEARXNG_URL)")
+    do.add_argument("--max", type=int, default=30, metavar="N", help="max results (default: 30)")
+    do.add_argument("-o", "--output", metavar="FILE", help="write the URLs here, one per line")
+    dk.set_defaults(func=cmd_dork)
 
     egg = sub.add_parser("hand", parents=[common])  # easter egg: no help= keeps it out of the listing
     egg.set_defaults(func=cmd_hand)

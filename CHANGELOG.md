@@ -3,6 +3,23 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.0] - 2026-06-17
+
+### Added
+- **`wraith dork` — find URLs with a search-engine dork.** A discovery command
+  that turns a dork (a query with `inurl:`/`intitle:`/`ext:` operators) into a
+  list of URLs and stops there: it lists results and **never sends a request to
+  them** — testing them is the separate, deliberate `wraith <url>` step. Preset
+  flags build the query for you and combine with a raw query and each other:
+  `--params` (a.k.a. `--injec` — URLs with injectable-looking parameters, the
+  classic SQLi/IDOR candidates), `--files` (exposed files), `--panels`
+  (login/admin) and `--listing` (open directory listings); `--site DOMAIN` scopes
+  the search to one domain and drops anything off it. Because scraping a search
+  page is blocked everywhere now, it talks to a real search API — SearXNG
+  (`WRAITH_SEARXNG_URL`, no key), Google Programmable Search (`WRAITH_GOOGLE_API_KEY`
+  + `WRAITH_GOOGLE_CX`) or Brave (`WRAITH_BRAVE_API_KEY`), chosen by `--engine` or
+  whichever is configured.
+
 ## [0.8.8] - 2026-06-16
 
 ### Changed

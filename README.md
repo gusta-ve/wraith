@@ -204,6 +204,38 @@ footprint — Tor (fail-closed), a random browser UA, low-and-slow pacing and se
 requests, all at once. Override any single piece with its own flag (`--ghost --delay
 2`). The same flag works in [hickok](https://github.com/gusta-ve/hickok).
 
+## Finding targets — `wraith dork`
+
+`wraith dork` turns a search-engine **dork** (a query with operators like `inurl:`,
+`intitle:`, `ext:`) into a list of URLs — and stops there. It's a **discovery**
+command: it lists results and **never sends a request to them**. Testing what you
+find is the separate, deliberate `wraith <url>` step.
+
+```bash
+wraith dork "inurl:login"                  # a raw dork
+wraith dork --params                       # URLs with injectable params (SQLi/IDOR candidates)
+wraith dork --params --site target.com     # the same, scoped to a target you're authorized to test
+wraith dork --files --max 50 -o urls.txt   # exposed files (.env/.bak/.sql…), save the list
+```
+
+Preset flags build the dork for you and combine with a query and each other:
+`--params` (also `--injec` — injectable-looking parameters), `--files` (exposed
+files), `--panels` (login/admin), `--listing` (open directory listings). `--site
+DOMAIN` scopes the search to one domain and drops anything off it.
+
+Scraping a search page is blocked everywhere now (this is why sqlmap's `-g` rots),
+so wraith talks to a real search **API** — pick one by configuring it (no key
+needed for a SearXNG instance):
+
+```bash
+export WRAITH_SEARXNG_URL=https://searx.example          # SearXNG (self-host or public)
+export WRAITH_GOOGLE_API_KEY=…  WRAITH_GOOGLE_CX=…        # Google Programmable Search
+export WRAITH_BRAVE_API_KEY=…                            # Brave Search API
+```
+
+Discovery is for targets you're authorized to assess — a dork points you at an
+attack surface, it doesn't grant permission to test it.
+
 ## Post-exploitation — [hickok](https://github.com/gusta-ve/hickok)
 
 wraith finds and proves the way in; landing a shell and working the box is
