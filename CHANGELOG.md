@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.8] - 2026-06-16
+
+### Changed
+- Internal: folded the per-phase copy-paste into `core/web.py`. One
+  `http_bases()` replaces the identical `_bases` that lived in five phases,
+  `is_ip()` replaces the copy in `resolve` and `vhost`, and `access-control`
+  now shares `extract_links()` instead of carrying its own. No behaviour change —
+  just a single definition of each to maintain.
+
 ## [0.8.7] - 2026-06-16
 
 ### Changed

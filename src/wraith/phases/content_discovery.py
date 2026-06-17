@@ -10,8 +10,8 @@ import asyncio
 import difflib
 import random
 import string
-from urllib.parse import urlsplit
 
+from wraith.core import web
 from wraith.core.http import fetch
 from wraith.core.models import Severity
 from wraith.core.phase import Phase, register
@@ -45,24 +45,13 @@ class ContentDiscoveryPhase(Phase):
     CONCURRENCY = 40
 
     async def run(self, ws, console) -> None:
-        bases = self._bases(ws)
+        bases = web.http_bases(ws)
         if not bases:
             console.warn("no HTTP endpoints to enumerate")
             return
         words = self._wordlist(ws, console)
         for base in bases:
             await self._enumerate(ws, console, base, words)
-
-    @staticmethod
-    def _bases(ws) -> list:
-        seen, out = set(), []
-        for e in ws.endpoints:
-            p = urlsplit(e.url)
-            base = f"{p.scheme}://{p.netloc}"
-            if base not in seen:
-                seen.add(base)
-                out.append(base)
-        return out
 
     @staticmethod
     def _wordlist(ws, console) -> list:

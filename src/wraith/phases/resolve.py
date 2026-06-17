@@ -5,17 +5,8 @@ from __future__ import annotations
 import asyncio
 import socket
 
+from wraith.core import web
 from wraith.core.phase import Phase, register
-
-
-def _is_ip(value: str) -> bool:
-    for family in (socket.AF_INET, socket.AF_INET6):
-        try:
-            socket.inet_pton(family, value)
-            return True
-        except OSError:
-            continue
-    return False
 
 
 @register
@@ -26,7 +17,7 @@ class ResolvePhase(Phase):
 
     async def run(self, ws, console) -> None:
         target = ws.target
-        if _is_ip(target):
+        if web.is_ip(target):
             ws.add_host(target, "ip", "input")
             console.good(f"target is an IP: {target}")
             return

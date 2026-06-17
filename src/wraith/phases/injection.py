@@ -291,7 +291,7 @@ class InjectionPhase(Phase):
 
     async def run(self, ws, console) -> None:
         self._console = console          # so _send can log HTTP at -v 2/3
-        for base in self._bases(ws):
+        for base in web.http_bases(ws):
             host = urlsplit(base).netloc
             seeds = [base + "/"] + [e.url for e in ws.endpoints if e.url.startswith(base)]
             console.trace(f"crawling {base} for injectable parameters (up to {self.MAX_PAGES} pages)…",
@@ -641,14 +641,3 @@ class InjectionPhase(Phase):
         low = 1 if pt.param.lower() in cls._LOW_VALUE_PARAMS else 0
         loc = 0 if pt.location == "query" else 1
         return (low, loc, len(pt.values))
-
-    @staticmethod
-    def _bases(ws) -> list:
-        seen, out = set(), []
-        for e in ws.endpoints:
-            p = urlsplit(e.url)
-            base = f"{p.scheme}://{p.netloc}"
-            if base not in seen:
-                seen.add(base)
-                out.append(base)
-        return out

@@ -80,6 +80,19 @@ def params_from_url(url: str) -> dict:
     return {k: v[0] for k, v in parse_qs(urlsplit(url).query).items()}
 
 
+def http_bases(ws) -> list:
+    """Distinct ``scheme://netloc`` bases from the workspace's discovered
+    endpoints — the per-host roots the web phases each fan out from."""
+    seen, out = set(), []
+    for e in ws.endpoints:
+        p = urlsplit(e.url)
+        base = f"{p.scheme}://{p.netloc}"
+        if base not in seen:
+            seen.add(base)
+            out.append(base)
+    return out
+
+
 def build_points(url: str, html: str) -> list:
     """Injection points from a page's own query string and its HTML forms."""
     points = []

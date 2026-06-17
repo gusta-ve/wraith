@@ -10,10 +10,9 @@ from __future__ import annotations
 import asyncio
 import difflib
 import random
-import socket
 import string
-from urllib.parse import urlsplit
 
+from wraith.core import web
 from wraith.core.http import fetch
 from wraith.core.models import Severity
 from wraith.core.phase import Phase, register
@@ -26,16 +25,6 @@ COMMON_VHOSTS = [
 ]
 
 
-def _is_ip(value: str) -> bool:
-    for family in (socket.AF_INET, socket.AF_INET6):
-        try:
-            socket.inet_pton(family, value)
-            return True
-        except OSError:
-            continue
-    return False
-
-
 @register
 class VhostPhase(Phase):
     name = "vhost"
@@ -45,26 +34,15 @@ class VhostPhase(Phase):
     CONCURRENCY = 20
 
     async def run(self, ws, console) -> None:
-        bases = self._bases(ws)
+        bases = web.http_bases(ws)
         if not bases:
             console.warn("no HTTP endpoints for vhost fuzzing")
             return
         target = ws.target
-        domain = None if _is_ip(target) else (target if "." in target else None)
+        domain = None if web.is_ip(target) else (target if "." in target else None)
         candidates = [f"{p}.{domain}" for p in COMMON_VHOSTS] if domain else COMMON_VHOSTS
         for base in bases:
             await self._fuzz(ws, console, base, target, candidates)
-
-    @staticmethod
-    def _bases(ws) -> list:
-        seen, out = set(), []
-        for e in ws.endpoints:
-            p = urlsplit(e.url)
-            base = f"{p.scheme}://{p.netloc}"
-            if base not in seen:
-                seen.add(base)
-                out.append(base)
-        return out
 
     async def _fuzz(self, ws, console, base, target, candidates) -> None:
         baseline = await fetch(base, headers={"Host": target}, allow_redirects=False)
@@ -75,7 +53,7 @@ class VhostPhase(Phase):
         # Many servers/CDNs answer every Host the same way (a catch-all). If a
         # candidate looks just like this junk host, it isn't a real vhost.
         rnd = "".join(random.choice(string.ascii_lowercase) for _ in range(12))
-        junk = rnd if _is_ip(target) else f"{rnd}.{target}"
+        junk = rnd if web.is_ip(target) else f"{rnd}.{target}"
         negative = await fetch(base, headers={"Host": junk}, allow_redirects=False)
         sem = asyncio.Semaphore(self.CONCURRENCY)
 

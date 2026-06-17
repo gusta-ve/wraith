@@ -14,8 +14,8 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from urllib.parse import urlsplit
 
+from wraith.core import web
 from wraith.core.http import fetch
 from wraith.core.models import Severity
 from wraith.core.phase import Phase, register
@@ -109,7 +109,7 @@ class TemplateChecksPhase(Phase):
         if not templates:
             console.warn("no templates loaded")
             return
-        bases = self._bases(ws)
+        bases = web.http_bases(ws)
         if not bases:
             console.warn("no HTTP endpoints to test")
             return
@@ -117,17 +117,6 @@ class TemplateChecksPhase(Phase):
         for base in bases:
             for tpl in templates:
                 await self._run_template(ws, console, base, tpl)
-
-    @staticmethod
-    def _bases(ws) -> list:
-        seen, out = set(), []
-        for e in ws.endpoints:
-            p = urlsplit(e.url)
-            base = f"{p.scheme}://{p.netloc}"
-            if base not in seen:
-                seen.add(base)
-                out.append(base)
-        return out
 
     async def _run_template(self, ws, console, base, tpl) -> None:
         for req in tpl.get("requests", []):

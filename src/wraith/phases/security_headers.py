@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from urllib.parse import urlsplit
 
+from wraith.core import web
 from wraith.core.http import fetch
 from wraith.core.models import Severity
 from wraith.core.phase import Phase, register
@@ -84,7 +85,7 @@ class SecurityHeadersPhase(Phase):
     EVIL_ORIGIN = "https://wraith.evil"
 
     async def run(self, ws, console) -> None:
-        bases = self._bases(ws)
+        bases = web.http_bases(ws)
         if not bases:
             console.warn("no HTTP endpoints to audit")
             return
@@ -120,14 +121,3 @@ class SecurityHeadersPhase(Phase):
                                    evidence=f"Origin: {self.EVIL_ORIGIN} -> ACAO: "
                                             f"{cr.headers.get('access-control-allow-origin', '')}",
                                    description="Cross-origin resource sharing trusts untrusted origins.")
-
-    @staticmethod
-    def _bases(ws) -> list:
-        seen, out = set(), []
-        for e in ws.endpoints:
-            p = urlsplit(e.url)
-            base = f"{p.scheme}://{p.netloc}"
-            if base not in seen:
-                seen.add(base)
-                out.append(base)
-        return out

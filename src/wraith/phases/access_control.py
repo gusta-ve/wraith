@@ -24,6 +24,7 @@ import re
 from collections import deque
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
+from wraith.core import web
 from wraith.core.http import fetch
 from wraith.core.models import Severity
 from wraith.core.phase import Phase, register
@@ -35,7 +36,6 @@ ROLE_RANK = {
     "high": 3, "admin": 3, "root": 3,
 }
 
-_LINK_RE = re.compile(r'(?:href|src|action)\s*=\s*["\']([^"\']+)', re.I)
 _INT_RE = re.compile(r"(?<!\d)(\d{1,9})(?!\d)")
 _LOGIN_HINTS = ("login", "signin", "sign-in", "auth", "sso")
 _STATIC_EXT = (".css", ".js", ".mjs", ".map", ".svg", ".png", ".jpg", ".jpeg",
@@ -189,26 +189,10 @@ class AccessControlPhase(Phase):
                 continue
             out[url] = r
             if self._ok(r) and r.is_html:
-                for link in self._links(url, r.text, host):
+                for link in web.extract_links(url, r.text, host):
                     if link not in seen:
                         queue.append(link)
         return out
-
-    @staticmethod
-    def _links(base, html, host) -> list:
-        links = []
-        for m in _LINK_RE.finditer(html):
-            href = m.group(1).strip()
-            if href.lower().startswith(("javascript:", "mailto:", "tel:", "data:")):
-                continue
-            absu = urljoin(base, href).split("#")[0]
-            parts = urlsplit(absu)
-            if parts.scheme not in ("http", "https") or parts.netloc != host:
-                continue
-            if any(x in absu.lower() for x in ("logout", "signout", "sign-out")):
-                continue
-            links.append(absu)
-        return links
 
     # ------------------------------------------------------------- helpers
     @staticmethod
