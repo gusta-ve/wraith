@@ -194,6 +194,10 @@ the whole run is paced, not just one phase. SOCKS/Tor is native (no PySocks) and
 resolves DNS remotely (`socks5h`) so the hostname never leaks to your resolver.
 `--tor` **fails closed**: wraith verifies the exit really is Tor before sending any
 attack traffic and aborts otherwise, so a misconfigured run can't deanonymise you.
+One caveat: wraith doesn't verify the target's TLS certificate (offensive targets
+routinely have broken ones), so a hostile proxy or Tor exit can read or tamper with
+the traffic to the target — your origin stays hidden, but the channel to the target
+itself isn't trusted.
 
 Don't want to remember the knobs? `--ghost` is the one-flag preset for the safest
 footprint — Tor (fail-closed), a random browser UA, low-and-slow pacing and serial
