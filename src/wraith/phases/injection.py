@@ -210,6 +210,15 @@ def looks_like_sql_error(text: str) -> bool:
     return bool(_SQL_ERRORS.search(text or ""))
 
 
+def xss_reflected(resp, payload: str) -> bool:
+    """The breakout marker comes back verbatim in an HTML response — the raw
+    ``<``, ``>``, ``"`` survived unencoded, so it can break its context and
+    inject script. A reflection in a non-HTML response (JSON, plain text) the
+    browser never parses as markup, so it isn't XSS — the ``is_html`` gate is
+    what keeps an echoed API parameter from being mis-reported as one."""
+    return bool(resp) and resp.is_html and payload in (resp.text or "")
+
+
 def lfi_signature(text: str) -> str | None:
     """Name of the system file leaked in the response, or None."""
     if _PASSWD.search(text or ""):
@@ -377,8 +386,9 @@ class InjectionPhase(Phase):
         probe = "wx" + "".join(random.choice(string.ascii_lowercase) for _ in range(6))
         payload = f'{probe}"><svg/onload=alert(1)>'
         r = await self._send(pt, payload)
-        hit = bool(r and payload in r.text)
-        console.trace(f"xss        marker reflected raw={hit}", level=2)
+        hit = xss_reflected(r, payload)
+        console.trace(f"xss        reflected={bool(r and payload in (r.text or ''))} "
+                      f"html={bool(r and r.is_html)} hit={hit}", level=2)
         if hit:
             self._report(ws, console, "Reflected XSS", Severity.HIGH, pt, payload,
                          "Input is reflected without output encoding, allowing script injection.")

@@ -29,7 +29,9 @@ import urllib.request
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
-_DEFAULT_UA = "wraith/0.1"
+from wraith import __version__
+
+_DEFAULT_UA = f"wraith/{__version__}"
 
 # A few current, common browser User-Agents (public values) for --random-agent.
 _AGENTS = [

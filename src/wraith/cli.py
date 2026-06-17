@@ -414,7 +414,7 @@ def cmd_login(args) -> None:
         urllib.request.HTTPSHandler(context=ctx),
         urllib.request.HTTPCookieProcessor(jar),
     )
-    ua = {"User-Agent": "wraith/0.1"}
+    ua = {"User-Agent": f"wraith/{__version__}"}
 
     # GET the login page first: seeds the session cookie *and* lets us read the
     # form's real action and any hidden token it expects on submit.

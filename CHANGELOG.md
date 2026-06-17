@@ -3,6 +3,23 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.6] - 2026-06-16
+
+### Fixed
+- **IDOR now mutates the real object id, not the first number in the URL.** The
+  probe took the *first* integer it found, so `/api/v1/users/5` tested the `1` in
+  `v1` (and `/2024/report/42` the year) instead of the trailing id — missing the
+  actual reference and, worse, occasionally flagging a different API version as a
+  bypass. It now prefers an id-like query parameter (`id`, `user_id`, …) and
+  otherwise the **last** integer in the path.
+- **Reflected-XSS detection no longer fires on non-HTML responses.** A breakout
+  marker echoed back inside a JSON or `text/plain` body was reported as XSS even
+  though the browser never renders it as markup; the check now requires an HTML
+  content-type, matching the rigour of the other oracles.
+- **The default User-Agent reflects the real version again.** It was pinned to a
+  stale `wraith/0.1` (and `login` hardcoded the same), contradicting the
+  `--user-agent` help and the banner; it's now `wraith/<version>`.
+
 ## [0.8.5] - 2026-06-15
 
 ### Changed

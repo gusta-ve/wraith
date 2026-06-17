@@ -246,18 +246,52 @@ class AccessControlPhase(Phase):
         return _INT_RE.search(pq) is not None
 
     @staticmethod
-    def _first_id(url) -> int:
+    def _pq(url):
+        """(urlsplit parts, ``path?query`` string) — the addressable part an id
+        lives in. The port sits in netloc, so it's never seen as an id here."""
         parts = urlsplit(url)
-        pq = parts.path + (("?" + parts.query) if parts.query else "")
-        return int(_INT_RE.search(pq).group(1))
+        return parts, parts.path + (("?" + parts.query) if parts.query else "")
 
     @staticmethod
-    def _with_id(url, new_value) -> str | None:
-        parts = urlsplit(url)
-        pq = parts.path + (("?" + parts.query) if parts.query else "")
-        m = _INT_RE.search(pq)
-        if not m:
+    def _id_span(pq):
+        """(start, end) of the integer to treat as the object id inside ``pq``
+        (``path?query``), or None.
+
+        Prefer the value of an id-like query parameter (name ``id`` or ending in
+        ``id``: ``user_id``, ``pid``…); otherwise the **last** integer in the
+        path. Taking the last path integer — never the first — is what stops a
+        version or date segment being mistaken for the id: ``/api/v1/users/5``
+        must probe ``5``, not the ``1`` in ``v1`` (and ``/2024/report/42`` must
+        probe ``42``, not the year)."""
+        path, sep, query = pq.partition("?")
+        if query:
+            offset = len(path) + len(sep)
+            for m in re.finditer(r"([^&=]+)=([^&]*)", query):
+                if m.group(1).lower().endswith("id"):
+                    vm = _INT_RE.search(m.group(2))
+                    if vm:
+                        start = offset + m.start(2) + vm.start()
+                        return start, start + (vm.end() - vm.start())
+        path_ints = list(_INT_RE.finditer(path))
+        if path_ints:
+            return path_ints[-1].start(), path_ints[-1].end()
+        any_ints = list(_INT_RE.finditer(pq))      # fallback: a number only in the query
+        if any_ints:
+            return any_ints[-1].start(), any_ints[-1].end()
+        return None
+
+    @classmethod
+    def _first_id(cls, url) -> int:
+        _, pq = cls._pq(url)
+        start, end = cls._id_span(pq)              # callers gate on _INT_RE_search first
+        return int(pq[start:end])
+
+    @classmethod
+    def _with_id(cls, url, new_value) -> str | None:
+        parts, pq = cls._pq(url)
+        span = cls._id_span(pq)
+        if span is None:
             return None
-        new_pq = pq[: m.start()] + str(new_value) + pq[m.end():]
+        new_pq = pq[: span[0]] + str(new_value) + pq[span[1]:]
         path, _, query = new_pq.partition("?")
         return urlunsplit((parts.scheme, parts.netloc, path, query, ""))

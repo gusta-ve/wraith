@@ -20,6 +20,23 @@ def test_port_in_host_is_not_treated_as_id():
     assert AC._with_id(url, 4) == "http://127.0.0.1:8080/orders/4"
 
 
+def test_id_is_last_path_int_not_a_version_or_year():
+    # the object id is the trailing segment — never an API version or a date,
+    # so the probe mutates the real id and not the /v1/ or /2024/ prefix.
+    assert AC._first_id("http://h/api/v1/users/5") == 5
+    assert AC._with_id("http://h/api/v1/users/5", 6) == "http://h/api/v1/users/6"
+    assert AC._first_id("http://h/v2/orders/1003") == 1003
+    assert AC._first_id("http://h/2024/report/42") == 42
+
+
+def test_id_like_query_param_wins_over_other_numbers():
+    # a number-bearing path segment (v1) and a paging param (page=2) are both
+    # present, but the id-like parameter is the one to mutate.
+    url = "http://h/api/v1/widget?page=2&user_id=77"
+    assert AC._first_id(url) == 77
+    assert AC._with_id(url, 78) == "http://h/api/v1/widget?page=2&user_id=78"
+
+
 def test_ok_rejects_login_and_redirects():
     assert AC._ok(Response(200, "http://h/dashboard", "<p>ok</p>", {})) is True
     assert AC._ok(Response(200, "http://h/login", "<form>", {})) is False

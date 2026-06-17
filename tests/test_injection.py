@@ -13,7 +13,9 @@ from wraith.phases.injection import (
     timing_confirms,
     timing_hit,
     timing_too_noisy,
+    xss_reflected,
 )
+from wraith.core.http import Response
 from wraith.core.web import Point
 
 
@@ -69,6 +71,19 @@ def test_skip_framework_and_csrf_params():
         assert _skip_param(noise) is True
     for real in ("id", "q", "username", "search", "file"):
         assert _skip_param(real) is False
+
+
+def test_xss_reflected_requires_html_and_a_raw_breakout():
+    payload = 'wxabcdef"><svg/onload=alert(1)>'
+    html = {"content-type": "text/html; charset=utf-8"}
+    json = {"content-type": "application/json"}
+    # verbatim breakout in an HTML page -> real reflected XSS
+    assert xss_reflected(Response(200, "u", f"hi {payload} bye", html), payload) is True
+    # same reflection, but a JSON response the browser won't render as markup
+    assert xss_reflected(Response(200, "u", f'{{"q":"{payload}"}}', json), payload) is False
+    # the markup was encoded (no raw breakout) -> not reflected
+    assert xss_reflected(Response(200, "u", "hi wxabcdef&quot;&gt; bye", html), payload) is False
+    assert xss_reflected(None, payload) is False
 
 
 def test_sql_error_detection():
