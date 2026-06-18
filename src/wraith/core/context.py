@@ -66,9 +66,9 @@ class Workspace:
         self.sessions.append(sess)
         return sess
 
-    def add_finding(self, title, severity, phase="", target="", evidence="", description=""):
-        finding = Finding(title=title, severity=Severity(severity), phase=phase,
-                          target=target, evidence=evidence, description=description)
+    def add_finding(self, title, severity, phase="", target="", evidence="", description="", meta=None):
+        finding = Finding(title=title, severity=Severity(severity), phase=phase, target=target,
+                          evidence=evidence, description=description, meta=dict(meta or {}))
         self.findings.append(finding)
         return finding
 

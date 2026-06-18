@@ -222,7 +222,8 @@ def _load_sessions(ws, path, console) -> None:
 # Finding titles that mean server-side code execution — a way in that hickok,
 # wraith's post-exploitation companion, can turn into a shell.
 _FOOTHOLD_TITLES = ("command injection", "remote code", "rce", "code execution",
-                    "server-side template injection", "ssti", "deserial", "file upload")
+                    "server-side template injection", "ssti", "deserial", "file upload",
+                    "sql injection", "sqli")
 
 
 def _is_foothold(title: str) -> bool:

@@ -77,6 +77,10 @@ def write_json(ws, path=None) -> Path:
             "target": f.target,
             "evidence": f.evidence,
             "description": f.description,
+            # structured handoff for hickok: the SQLi technique/dbms it should use,
+            # so it runs the matching oracle instead of brute-forcing all of them.
+            "technique": f.meta.get("technique", ""),
+            "dbms": f.meta.get("dbms", ""),
         }
         for f in sorted(ws.findings, key=lambda x: int(x.severity), reverse=True)
     ]

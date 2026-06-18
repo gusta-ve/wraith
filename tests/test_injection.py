@@ -5,6 +5,7 @@ from wraith.phases.injection import (
     _skip_param,
     boolean_blind_hit,
     core_sim,
+    dbms_from_error,
     looks_like_sql_error,
     lfi_signature,
     relative_break,
@@ -91,6 +92,16 @@ def test_sql_error_detection():
     assert looks_like_sql_error("Warning: mysqli_query()") is True
     assert looks_like_sql_error("ORA-00933: SQL command not properly ended") is True
     assert looks_like_sql_error("just a normal page") is False
+
+
+def test_dbms_from_error_tags_the_backend():
+    # the handoff to hickok needs the DBMS so it picks the right error-based payloads
+    assert dbms_from_error("You have an error in your SQL syntax; check the manual") == "mysql"
+    assert dbms_from_error("ORA-00933: SQL command not properly ended") == "oracle"
+    assert dbms_from_error("Npgsql.PostgresException") == "postgresql"
+    assert dbms_from_error("Incorrect syntax near ''.") == "mssql"
+    assert dbms_from_error("sqlite3.OperationalError: near \"'\": syntax error") == "sqlite"
+    assert dbms_from_error("just a normal page") == ""
 
 
 def test_redirect_params():

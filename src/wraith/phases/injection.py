@@ -210,6 +210,25 @@ def looks_like_sql_error(text: str) -> bool:
     return bool(_SQL_ERRORS.search(text or ""))
 
 
+# DBMS signatures (broad), used only to tag an error-based finding with the
+# backend so the hickok handoff can pick the right error-based payloads.
+_DBMS_SIGNS = [
+    ("mysql", re.compile(r"sql syntax|mysqli?_|mysql_fetch|valid mysql|MySqlException|com\.mysql|MariaDB", re.I)),
+    ("postgresql", re.compile(r"PostgreSQL|pg_query|psycopg|PSQLException|Npgsql", re.I)),
+    ("mssql", re.compile(r"SQL Server|SQLSTATE\[|Incorrect syntax near|System\.Data\.SqlClient|OLE DB|ODBC SQL", re.I)),
+    ("oracle", re.compile(r"ORA-\d{5}|quoted string not properly terminated", re.I)),
+    ("sqlite", re.compile(r"SQLite|sqlite3", re.I)),
+]
+
+
+def dbms_from_error(text: str) -> str:
+    """Best-effort DBMS name from a leaked SQL error ('' if unknown)."""
+    for name, rx in _DBMS_SIGNS:
+        if rx.search(text or ""):
+            return name
+    return ""
+
+
 def xss_reflected(resp, payload: str) -> bool:
     """The breakout marker comes back verbatim in an HTML response — the raw
     ``<``, ``>``, ``"`` survived unencoded, so it can break its context and
@@ -424,7 +443,8 @@ class InjectionPhase(Phase):
                 if balanced and not looks_like_sql_error(balanced.text):
                     self._report(ws, console, "SQL Injection (error-based)", Severity.HIGH, pt, "1'",
                                  "A single quote raised a database error that a valid continuation "
-                                 f"({clear!r}) clears — the query is built from unsanitised input.")
+                                 f"({clear!r}) clears — the query is built from unsanitised input.",
+                                 technique="error-based", dbms=dbms_from_error(broken.text))
                     return True
 
         # (b) breakage-based: the odd quote breaks the response; a valid SQL
@@ -448,7 +468,8 @@ class InjectionPhase(Phase):
                 console.trace("sqli/quote broke and a valid continuation restored — CONFIRMED", level=2)
                 self._report(ws, console, "SQL Injection (blind — broken response)", Severity.HIGH, pt, "1'",
                              "A single quote breaks the response while a valid SQL continuation "
-                             "restores it: the input alters SQL syntax, but the error is suppressed.")
+                             "restores it: the input alters SQL syntax, but the error is suppressed.",
+                             technique="boolean-blind")
                 return True
         return False
 
@@ -485,7 +506,8 @@ class InjectionPhase(Phase):
                 self._report(ws, console, "SQL Injection (boolean blind)", Severity.HIGH, pt,
                              f"{true_v}  /  {false_v}",
                              "A TRUE condition returns the normal page while a FALSE one diverges "
-                             "(reproduced) — the query's logic reacts to injected input.")
+                             "(reproduced) — the query's logic reacts to injected input.",
+                             technique="boolean-blind")
                 return True
             console.trace("confirm sqli/bool did not reproduce — discarded", level=2)
         return False
@@ -523,11 +545,14 @@ class InjectionPhase(Phase):
         is_sql = label.startswith("sqli")
         kind = "SQL Injection (time-based blind)" if is_sql else "Command Injection"
         sev = Severity.HIGH if is_sql else Severity.CRITICAL
+        technique = "time-based" if is_sql else "os-command"
+        dbms = label.split("/", 1)[1].split("-")[0].lower() if is_sql else ""   # 'sqli/MySQL' -> 'mysql'
         proof = (f"baseline {base_t:.2f}s; sleep({self.SLEEP_FAST})→{dt1:.2f}s; "
                  f"sleep({self.SLEEP_CONFIRM})→{dt2:.2f}s — delay tracks the injected sleep")
         self._report(ws, console, kind, sev, pt, tmpl.format(s=self.SLEEP_FAST),
                      f"The response time scales with an injected sleep, proving server-side "
-                     f"{'SQL' if is_sql else 'OS command'} execution. {proof}")
+                     f"{'SQL' if is_sql else 'OS command'} execution. {proof}",
+                     technique=technique, dbms=dbms)
         return True
 
     async def _baseline_time(self, pt) -> float:
@@ -622,11 +647,17 @@ class InjectionPhase(Phase):
         return hit
 
     # --------------------------------------------------------------- report
-    def _report(self, ws, console, title, sev, pt, payload, desc) -> None:
+    def _report(self, ws, console, title, sev, pt, payload, desc, technique="", dbms="") -> None:
         where = f"{pt.method} {pt.action} [{pt.param}]"
         console.finding(sev.label, f"{title}  {where}")
+        meta = {}
+        if technique:
+            meta["technique"] = technique      # error-based | boolean-blind | time-based | os-command
+        if dbms:
+            meta["dbms"] = dbms
         ws.add_finding(title=f"{title} in '{pt.param}'", severity=sev, phase=self.name,
-                       target=pt.action, evidence=f"{where} payload={payload!r}", description=desc)
+                       target=pt.action, evidence=f"{where} payload={payload!r}",
+                       description=desc, meta=meta)
 
     # -------------------------------------------------------------- helpers
     # Form fields that submit an answer/flag rather than feed a query — real on a

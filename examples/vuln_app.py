@@ -8,6 +8,7 @@ Planted issues (and the phase that finds each):
   /account/orders/<id>    no ownership check on id         -> access-control (IDOR)
   /search?q=              reflects q unescaped             -> injection (XSS)
   /product?id=            quote triggers a SQL error       -> injection (SQLi error-based)
+  /profile?id=            verbose DB error leaks via it     -> error-based exfil lab (hickok extractvalue)
   /items?id=              FALSE condition empties the page -> injection (SQLi boolean-blind)
   /db?id=                 boolean-blind SQLi over a real sqlite DB (walk it with hickok sql)
   /news?id=               UNION-based SQLi (reflected) over the same DB
@@ -123,6 +124,7 @@ class Handler(BaseHTTPRequestHandler):
                 '<a href="/admin-secure">Admin (secure)</a> '
                 '<a href="/search?q=test">Search</a> '
                 '<a href="/product?id=1">Product</a> '
+                '<a href="/profile?id=1">Profile</a> '
                 '<a href="/items?id=1">Items</a> '
                 '<a href="/db?id=1">DB</a> '
                 '<a href="/lookup?token=abc">Lookup</a> '
@@ -155,6 +157,29 @@ class Handler(BaseHTTPRequestHandler):
                     "<h1>Error</h1><pre>You have an error in your SQL syntax; check the manual "
                     "near \"'\" at line 1</pre>"))
             return self._send(200, page(f"<h1>Product {pid}</h1><p>A fine product.</p>"))
+
+        if path == "/profile":
+            # VULNERABLE: error-based SQLi with a *verbose* DB error. The app echoes
+            # the database error, so an extractvalue/updatexml-style payload leaks
+            # data inside it (the classic error-based exfil) — a ground-truth lab
+            # for an error-based oracle: send
+            #   id=1 AND extractvalue(1,concat(0x7e,(SELECT password FROM users WHERE id=1)))
+            # and read the value back out of the error. A bare odd quote just errors.
+            raw = (query.get("id") or ["1"])[0]
+            sub = re.search(r"\((SELECT\b(?:[^()]|\([^()]*\))*)\)", raw, re.I)
+            if re.search(r"extractvalue|updatexml", raw, re.I) and sub:
+                try:
+                    with _DB_LOCK:
+                        row = _DB.execute(sub.group(1)).fetchone()
+                    leaked = "" if row is None else str(row[0])
+                except Exception as exc:
+                    leaked = str(exc)
+                return self._send(500, page(f"<pre>XPATH syntax error: '~{html.escape(leaked)}'</pre>"))
+            if raw.count("'") % 2 or raw.count('"') % 2:
+                return self._send(500, page(
+                    "<h1>Error</h1><pre>You have an error in your SQL syntax; check the manual "
+                    "near \"'\" at line 1</pre>"))
+            return self._send(200, page(f"<h1>Profile {html.escape(raw)}</h1><p>member since 2021.</p>"))
 
         if path == "/items":
             # VULNERABLE: boolean-blind SQLi — a FALSE condition empties the list.

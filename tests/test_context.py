@@ -27,3 +27,13 @@ def test_save_load_roundtrip(tmp_path):
     assert loaded.services[0].port == 443
     assert loaded.findings[0].severity == Severity.HIGH
     assert loaded.findings[0].severity.label == "High"
+
+
+def test_finding_meta_survives_save_load(tmp_path):
+    ws = Workspace.create("h", base_dir=str(tmp_path))
+    ws.add_finding("SQL Injection (error-based) in 'id'", Severity.HIGH, phase="injection",
+                   target="http://h/p.php", meta={"technique": "error-based", "dbms": "mysql"})
+    ws.add_finding("Missing header", Severity.LOW, phase="security-headers")    # no meta
+    loaded = Workspace.load(ws.save())
+    assert loaded.findings[0].meta == {"technique": "error-based", "dbms": "mysql"}
+    assert loaded.findings[1].meta == {}                                        # backward-compatible default

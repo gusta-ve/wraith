@@ -70,4 +70,5 @@ class Finding:
     target: str = ""
     evidence: str = ""
     description: str = ""
+    meta: dict = field(default_factory=dict)   # structured extras, e.g. SQLi technique/dbms for the handoff
     created: float = field(default_factory=time.time)

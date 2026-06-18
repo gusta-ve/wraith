@@ -18,8 +18,9 @@ def test_runs_dir_honours_env_then_xdg(monkeypatch, tmp_path):
 def test_is_foothold_flags_code_execution():
     assert _is_foothold("Command Injection in 'host'") is True
     assert _is_foothold("Server-Side Template Injection in 'name'") is True
-    assert _is_foothold("Reflected XSS in 'q'") is False
-    assert _is_foothold("SQL Injection (boolean blind) in 'id'") is False
+    assert _is_foothold("SQL Injection (boolean blind) in 'id'") is True      # -> hickok sql
+    assert _is_foothold("Reflected XSS in 'q'") is False                      # not a hickok foothold
+    assert _is_foothold("Missing security header: CSP") is False
 
 
 def test_normalize_target_accepts_url_and_host():

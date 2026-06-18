@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.3] - 2026-06-17
+
+### Added
+- **SQLi findings carry a structured `technique` and `dbms`** (error-based /
+  boolean-blind / time-based, plus the detected backend) through `findings.json`,
+  so a post-exploitation handoff (hickok) can run the matching oracle instead of
+  brute-forcing boolean→union→time on a point that's, say, only error-based. A
+  SQL-injection finding now also triggers the "deal the hand to hickok" pointer.
+- **Lab: an error-based exfil sink.** `examples/vuln_app.py` gains `/profile`,
+  whose verbose DB error leaks data via an `extractvalue`/`updatexml`-style
+  payload (`id=1 AND extractvalue(1,concat(0x7e,(SELECT …)))`) — a ground-truth
+  target for building and testing an error-based oracle.
+
 ## [0.9.2] - 2026-06-17
 
 ### Added
