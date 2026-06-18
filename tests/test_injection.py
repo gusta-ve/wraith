@@ -16,7 +16,9 @@ from wraith.phases.injection import (
     timing_too_noisy,
     xss_reflected,
 )
+from wraith.core.context import Workspace
 from wraith.core.http import Response
+from wraith.core.models import Severity
 from wraith.core.web import Point
 
 
@@ -92,6 +94,21 @@ def test_sql_error_detection():
     assert looks_like_sql_error("Warning: mysqli_query()") is True
     assert looks_like_sql_error("ORA-00933: SQL command not properly ended") is True
     assert looks_like_sql_error("just a normal page") is False
+
+
+def test_report_records_param_and_method():
+    # every injection finding carries the injectable point, so the hickok handoff
+    # is structured (no title string-parsing on the consumer side)
+    ws = Workspace(target="h")
+    pt = Point("POST", "http://h/login", {"u": "1"}, "u", "body")
+
+    class _Console:
+        def finding(self, *a):
+            pass
+
+    InjectionPhase()._report(ws, _Console(), "Reflected XSS", Severity.HIGH, pt, "x", "desc")
+    assert ws.findings[0].meta["param"] == "u"
+    assert ws.findings[0].meta["method"] == "POST"
 
 
 def test_dbms_from_error_tags_the_backend():

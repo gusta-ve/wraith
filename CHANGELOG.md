@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.5] - 2026-06-18
+
+### Added
+- **Injection findings carry the injectable point structurally** — `param` and
+  `method` in `findings.json`, alongside the existing `technique`/`dbms`. A
+  post-exploitation handoff (hickok) now reads the point from fields instead of
+  string-parsing the finding title, so an odd parameter name can't trip it up.
+
 ## [0.9.4] - 2026-06-17
 
 ### Fixed

@@ -650,7 +650,9 @@ class InjectionPhase(Phase):
     def _report(self, ws, console, title, sev, pt, payload, desc, technique="", dbms="") -> None:
         where = f"{pt.method} {pt.action} [{pt.param}]"
         console.finding(sev.label, f"{title}  {where}")
-        meta = {}
+        # the injectable point, structured — so the handoff (hickok) reads param/
+        # method from fields instead of string-parsing the title/evidence.
+        meta = {"param": pt.param, "method": pt.method}
         if technique:
             meta["technique"] = technique      # error-based | boolean-blind | time-based | os-command
         if dbms:

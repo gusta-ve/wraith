@@ -42,11 +42,13 @@ def test_markdown_escapes_pipes_in_cells(tmp_path):
     assert row.count("|") - row.count("\\|") == 5    # still a clean four-column row
 
 
-def test_json_report_carries_technique_and_dbms(tmp_path):
+def test_json_report_carries_handoff_fields(tmp_path):
     import json
     ws = Workspace.create("h", base_dir=str(tmp_path))
     ws.add_finding("SQL Injection (error-based) in 'id'", Severity.HIGH, phase="injection",
-                   target="http://h/p.php", meta={"technique": "error-based", "dbms": "mysql"})
+                   target="http://h/p.php",
+                   meta={"technique": "error-based", "dbms": "mysql", "param": "id", "method": "GET"})
     data = json.loads(report.write_json(ws).read_text())
     entry = next(e for e in data if "SQL Injection" in e["title"])
     assert entry["technique"] == "error-based" and entry["dbms"] == "mysql"
+    assert entry["param"] == "id" and entry["method"] == "GET"    # injectable point, structured
