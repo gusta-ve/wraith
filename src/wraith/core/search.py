@@ -7,29 +7,32 @@ finds. What you do with the list afterwards — and whether you're authorized to
 is a separate, deliberate step (``wraith <target>``), never something this module
 does for you. There is, by design, no function here that touches a result.
 
-Scraping a search page directly is blocked by every major engine now (this is why
-sqlmap's ``-g`` rots), so wraith talks to a real search *API*. Pick one by
-configuring it (env var or flag); ``--engine`` forces a choice:
+By default ``wraith dork`` needs **no setup**: it scrapes DuckDuckGo's HTML
+endpoint — the same no-key path sqlmap's ``-g`` falls back to. Configure an API
+backend for heavier or steadier use and wraith prefers it automatically;
+``--engine`` forces a specific one:
 
-  * ``searxng``  a SearXNG instance's JSON API   ``WRAITH_SEARXNG_URL``  (no API key)
-  * ``google``   Google Programmable Search      ``WRAITH_GOOGLE_API_KEY`` + ``WRAITH_GOOGLE_CX``
-  * ``brave``    Brave Search API                ``WRAITH_BRAVE_API_KEY``
+  * ``duckduckgo``  DuckDuckGo HTML endpoint        (default — no key)
+  * ``searxng``     a SearXNG instance's JSON API   ``WRAITH_SEARXNG_URL``  (no key)
+  * ``google``      Google Programmable Search      ``WRAITH_GOOGLE_API_KEY`` + ``WRAITH_GOOGLE_CX``
+  * ``brave``       Brave Search API                ``WRAITH_BRAVE_API_KEY``
 
-Each engine's JSON shape is parsed by a small pure function (tested); the async
-``search()`` pages until it has enough, honouring wraith's opsec profile
-(UA/proxy/throttle) on the API calls.
+Each engine's response (JSON for the APIs, HTML for DuckDuckGo) is turned into
+results by a small pure function (tested); the async ``search()`` pages until it
+has enough, honouring wraith's opsec profile (UA/proxy/throttle) on the calls.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
-from wraith.core.http import fetch
+from wraith.core.http import fetch, random_agent
 
-ENGINES = ("searxng", "google", "brave")
+ENGINES = ("duckduckgo", "searxng", "google", "brave")
 
 # Dork presets — public, GHDB-style discovery categories. They only shape the
 # search query; the results are URLs the engine already indexed. `params` finds
@@ -107,8 +110,51 @@ def parse_brave(data: dict) -> list:
     return out
 
 
-_PARSERS = {"searxng": parse_searxng, "google": parse_google_cse, "brave": parse_brave}
+# DuckDuckGo's HTML endpoint wraps each result link as
+# `//duckduckgo.com/l/?uddg=<urlencoded-target>&rut=…`; the real URL is the uddg
+# param. Match the result anchors regardless of attribute order, decode uddg, and
+# drop DDG's own internal links.
+_DDG_ANCHOR = re.compile(r"<a\b([^>]*\bresult__a\b[^>]*)>", re.I)
+_HREF = re.compile(r'href="([^"]+)"', re.I)
+
+
+def parse_duckduckgo(html: str) -> list:
+    out, seen = [], set()
+    for a in _DDG_ANCHOR.finditer(html or ""):
+        hm = _HREF.search(a.group(1))
+        if not hm:
+            continue
+        href = hm.group(1).replace("&amp;", "&")
+        url = (parse_qs(urlsplit(href).query).get("uddg") or [href])[0] if "uddg=" in href else href
+        if not url.startswith(("http://", "https://")):
+            continue
+        host = (urlsplit(url).hostname or "").lower()
+        if host and not host.endswith("duckduckgo.com") and url not in seen:
+            seen.add(url)
+            out.append(SearchResult(url, "", "duckduckgo"))
+    return out
+
+
+def _json_extractor(parser):
+    """Wrap a JSON parser so the search loop can treat every engine the same —
+    raw response text in, results out (an unparseable body yields nothing)."""
+    def extract(text):
+        try:
+            return parser(json.loads(text))
+        except ValueError:
+            return []
+    return extract
+
+
+# response text -> results, per engine (JSON for the APIs, HTML for DuckDuckGo)
+_EXTRACTORS = {
+    "duckduckgo": parse_duckduckgo,
+    "searxng": _json_extractor(parse_searxng),
+    "google": _json_extractor(parse_google_cse),
+    "brave": _json_extractor(parse_brave),
+}
 _PAGE_SIZE = {"searxng": 10, "google": 10, "brave": 20}
+_SINGLE_PAGE = {"duckduckgo"}   # HTML scrape: one page, no reliable result offset
 
 
 # ------------------------------------------------------------- result hygiene
@@ -145,8 +191,8 @@ def _first(*values) -> str:
 
 def resolve_engine(engine="", *, searx_url="", google_key="", google_cx="", brave_key=""):
     """Pick the engine and its config: an explicit ``engine`` if given, else the
-    first one that's actually configured. Returns ``(engine_name, config)`` with
-    ``engine_name`` empty when nothing is configured."""
+    first configured API backend, else ``duckduckgo`` (the no-key default, so a
+    bare ``wraith dork`` just works). Returns ``(engine_name, config)``."""
     cfg = {
         "searx_url": _first(searx_url, os.environ.get("WRAITH_SEARXNG_URL")),
         "google_key": _first(google_key, os.environ.get("WRAITH_GOOGLE_API_KEY")),
@@ -161,11 +207,16 @@ def resolve_engine(engine="", *, searx_url="", google_key="", google_cx="", brav
         return "google", cfg
     if cfg["brave_key"]:
         return "brave", cfg
-    return "", cfg
+    return "duckduckgo", cfg
 
 
 def _page_request(engine, query, page, cfg):
     """Build the (url, headers) for one page of results from ``engine``."""
+    if engine == "duckduckgo":
+        qs = urlencode({"q": query})
+        # the HTML endpoint is the scrape-friendly, no-key one; DDG expects a
+        # browser-looking UA, so override just this call's User-Agent.
+        return f"https://html.duckduckgo.com/html/?{qs}", {"User-Agent": random_agent()}
     if engine == "searxng":
         base = (cfg["searx_url"] or "").rstrip("/")
         if not base:
@@ -194,35 +245,28 @@ async def search(query, *, engine="", max_results=30, site="", on_page=None,
 
     Results are de-duplicated, kept in ``site`` scope when given, and capped at
     ``max_results``. Discovery only — the URLs are returned, never contacted.
-    Raises SearchError when no backend is configured or one is misconfigured."""
+    Raises SearchError if a chosen backend (e.g. ``--engine google`` without its
+    keys) is misconfigured."""
     eng, cfg = resolve_engine(engine, searx_url=searx_url, google_key=google_key,
                               google_cx=google_cx, brave_key=brave_key)
-    if not eng:
-        raise SearchError(
-            "no search backend configured — set one of:\n"
-            "  WRAITH_SEARXNG_URL=https://searx.example     (a SearXNG instance, no API key)\n"
-            "  WRAITH_GOOGLE_API_KEY=… and WRAITH_GOOGLE_CX=…  (Google Programmable Search)\n"
-            "  WRAITH_BRAVE_API_KEY=…                        (Brave Search API)\n"
-            "or pass --engine with its --searx-url / keys")
-    if eng not in _PARSERS:
+    if eng not in _EXTRACTORS:
         raise SearchError(f"unknown engine: {eng!r} (choose from {', '.join(ENGINES)})")
 
-    parser = _PARSERS[eng]
+    extract = _EXTRACTORS[eng]
     results, page, max_pages = [], 0, 10
     while len(results) < max_results and page < max_pages:
         url, headers = _page_request(eng, query, page, cfg)
         r = await fetch(url, headers=headers, timeout=15.0)
         if r is None or not (200 <= r.status < 300):
             break
-        try:
-            batch = parser(json.loads(r.text))
-        except ValueError:
-            break
+        batch = extract(r.text)
         if on_page is not None:
             on_page(eng, page + 1, len(batch))
         if not batch:
             break
         results.extend(batch)
+        if eng in _SINGLE_PAGE:          # HTML scrape: one page, no reliable result offset
+            break
         page += 1
 
     return in_scope(dedupe(results), site)[:max_results], eng

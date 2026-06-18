@@ -11,6 +11,7 @@ from wraith.core.search import (
     dedupe,
     in_scope,
     parse_brave,
+    parse_duckduckgo,
     parse_google_cse,
     parse_searxng,
     resolve_engine,
@@ -75,7 +76,7 @@ def test_in_scope_filters_to_domain_and_subdomains():
 def test_resolve_engine_prefers_explicit_then_configured(monkeypatch):
     for var in ("WRAITH_SEARXNG_URL", "WRAITH_GOOGLE_API_KEY", "WRAITH_GOOGLE_CX", "WRAITH_BRAVE_API_KEY"):
         monkeypatch.delenv(var, raising=False)
-    assert resolve_engine()[0] == ""                       # nothing configured
+    assert resolve_engine()[0] == "duckduckgo"             # no config -> the no-key default
     assert resolve_engine(searx_url="http://s")[0] == "searxng"
     monkeypatch.setenv("WRAITH_GOOGLE_API_KEY", "k")
     monkeypatch.setenv("WRAITH_GOOGLE_CX", "cx")
@@ -106,8 +107,47 @@ def test_search_lists_urls_and_never_touches_them(monkeypatch):
     assert not any("found.test" in u for u in calls)       # never to a discovered URL
 
 
-def test_search_without_backend_raises(monkeypatch):
+def test_parse_duckduckgo_decodes_uddg_and_drops_internal():
+    html = (
+        '<a rel="nofollow" class="result__a" '
+        'href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fshop.test%2Fitem.php%3Fid%3D5&amp;rut=x">Shop</a>'
+        '<a class="result__a" href="//duckduckgo.com/l/?uddg=http%3A%2F%2Fblog.test%2Fp.php%3Fid%3D2">Blog</a>'
+        '<a class="result__a" href="https://direct.test/x?id=1">Direct</a>'
+        '<a class="header__logo" href="//duckduckgo.com/about">internal</a>'
+    )
+    urls = [r.url for r in parse_duckduckgo(html)]
+    # uddg redirects are decoded, a direct link is kept, DDG's own nav is dropped
+    assert urls == ["https://shop.test/item.php?id=5", "http://blog.test/p.php?id=2", "https://direct.test/x?id=1"]
+    assert parse_duckduckgo("") == []
+
+
+def test_search_uses_duckduckgo_by_default(monkeypatch):
+    # with nothing configured, `search()` works out of the box via DuckDuckGo,
+    # parses its HTML, hits one page, and contacts only the engine.
     for var in ("WRAITH_SEARXNG_URL", "WRAITH_GOOGLE_API_KEY", "WRAITH_GOOGLE_CX", "WRAITH_BRAVE_API_KEY"):
         monkeypatch.delenv(var, raising=False)
+    calls = []
+    ddg_html = (
+        '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fa.test%2Fp.php%3Fid%3D1">A</a>'
+        '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fb.test%2Fp.php%3Fid%3D2">B</a>'
+    )
+
+    async def fake_fetch(url, **kw):
+        calls.append(url)
+        return Response(200, url, ddg_html, {"content-type": "text/html"})
+
+    monkeypatch.setattr(search, "fetch", fake_fetch)
+    results, engine = asyncio.run(search.search("inurl:php?id=", max_results=30))
+    assert engine == "duckduckgo"
+    assert [r.url for r in results] == ["https://a.test/p.php?id=1", "https://b.test/p.php?id=2"]
+    assert len(calls) == 1                                  # single page — no pointless re-fetch
+    assert all("duckduckgo.com" in u for u in calls)       # only the search engine was contacted
+
+
+def test_search_misconfigured_engine_raises(monkeypatch):
+    # an explicitly chosen API backend without its keys is an error — and it's
+    # caught before any network call (the default DuckDuckGo needs no config)
+    for var in ("WRAITH_GOOGLE_API_KEY", "WRAITH_GOOGLE_CX"):
+        monkeypatch.delenv(var, raising=False)
     with pytest.raises(search.SearchError):
-        asyncio.run(search.search("inurl:id"))
+        asyncio.run(search.search("inurl:id", engine="google"))

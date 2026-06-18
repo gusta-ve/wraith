@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.1] - 2026-06-17
+
+### Added
+- **`wraith dork` works with no setup — DuckDuckGo by default.** Added a no-key
+  DuckDuckGo backend (it scrapes the HTML endpoint, the same path sqlmap's `-g`
+  falls back to) and made it the default when no API backend is configured, so a
+  bare `wraith dork --params` returns results out of the box. A configured
+  SearXNG/Google/Brave backend is still preferred automatically, and `--engine
+  duckduckgo|searxng|google|brave` forces a specific one.
+
 ## [0.9.0] - 2026-06-17
 
 ### Added
@@ -14,11 +24,10 @@ based on [Keep a Changelog](https://keepachangelog.com/).
   `--params` (a.k.a. `--injec` — URLs with injectable-looking parameters, the
   classic SQLi/IDOR candidates), `--files` (exposed files), `--panels`
   (login/admin) and `--listing` (open directory listings); `--site DOMAIN` scopes
-  the search to one domain and drops anything off it. Because scraping a search
-  page is blocked everywhere now, it talks to a real search API — SearXNG
-  (`WRAITH_SEARXNG_URL`, no key), Google Programmable Search (`WRAITH_GOOGLE_API_KEY`
-  + `WRAITH_GOOGLE_CX`) or Brave (`WRAITH_BRAVE_API_KEY`), chosen by `--engine` or
-  whichever is configured.
+  the search to one domain and drops anything off it. It talks to a search API —
+  SearXNG (`WRAITH_SEARXNG_URL`, no key), Google Programmable Search
+  (`WRAITH_GOOGLE_API_KEY` + `WRAITH_GOOGLE_CX`) or Brave (`WRAITH_BRAVE_API_KEY`),
+  chosen by `--engine` or whichever is configured.
 
 ## [0.8.8] - 2026-06-16
 

@@ -223,9 +223,9 @@ Preset flags build the dork for you and combine with a query and each other:
 files), `--panels` (login/admin), `--listing` (open directory listings). `--site
 DOMAIN` scopes the search to one domain and drops anything off it.
 
-Scraping a search page is blocked everywhere now (this is why sqlmap's `-g` rots),
-so wraith talks to a real search **API** — pick one by configuring it (no key
-needed for a SearXNG instance):
+By default it needs **no setup** — it scrapes DuckDuckGo's HTML endpoint (the same
+no-key path sqlmap's `-g` falls back to). For heavier or steadier use, configure an
+API backend and wraith prefers it automatically:
 
 ```bash
 export WRAITH_SEARXNG_URL=https://searx.example          # SearXNG (self-host or public)
@@ -233,8 +233,9 @@ export WRAITH_GOOGLE_API_KEY=…  WRAITH_GOOGLE_CX=…        # Google Programma
 export WRAITH_BRAVE_API_KEY=…                            # Brave Search API
 ```
 
-Discovery is for targets you're authorized to assess — a dork points you at an
-attack surface, it doesn't grant permission to test it.
+`--engine duckduckgo|searxng|google|brave` forces a specific one. Discovery is for
+targets you're authorized to assess — a dork points you at an attack surface, it
+doesn't grant permission to test it.
 
 ## Post-exploitation — [hickok](https://github.com/gusta-ve/hickok)
 

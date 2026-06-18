@@ -67,7 +67,8 @@ examples:
   wraith dork --files --max 50 -o urls.txt   exposed files, save the list
 
 discovery only — `dork` lists URLs and never touches them; testing them is the
-separate, deliberate `wraith <url>` step. Configure a backend first (env):
+separate, deliberate `wraith <url>` step. Works with no setup (DuckDuckGo); for
+scale, configure an API backend (env):
   WRAITH_SEARXNG_URL  ·  WRAITH_GOOGLE_API_KEY + WRAITH_GOOGLE_CX  ·  WRAITH_BRAVE_API_KEY
 """
 
@@ -666,9 +667,9 @@ def build_parser() -> argparse.ArgumentParser:
     dk = sub.add_parser("dork", help="find URLs with a search-engine dork (discovery only — never scans them)",
                         formatter_class=_Help, parents=[common, opsec], epilog=DORK_EXAMPLES,
                         description="Discover URLs from a search engine using a dork. It lists results "
-                                    "only — it never sends a request to them. Configure a backend via env: "
-                                    "WRAITH_SEARXNG_URL, or WRAITH_GOOGLE_API_KEY+WRAITH_GOOGLE_CX, or "
-                                    "WRAITH_BRAVE_API_KEY.")
+                                    "only — it never sends a request to them. Works with no setup "
+                                    "(DuckDuckGo); set WRAITH_SEARXNG_URL / WRAITH_GOOGLE_API_KEY+"
+                                    "WRAITH_GOOGLE_CX / WRAITH_BRAVE_API_KEY to use an API backend.")
     dk.add_argument("query", nargs="?", help="the search query / dork (e.g. 'inurl:login')")
     dg = dk.add_argument_group("dork presets (combine with a query and/or each other)")
     dg.add_argument("--params", "--injec", dest="params", action="store_true",
@@ -678,7 +679,8 @@ def build_parser() -> argparse.ArgumentParser:
     dg.add_argument("--listing", action="store_true", help='open directory listings (intitle:"index of")')
     do = dk.add_argument_group("dork options")
     do.add_argument("--site", metavar="DOMAIN", help="scope results to a domain (site:DOMAIN + post-filter)")
-    do.add_argument("--engine", choices=list(search.ENGINES), help="search backend (default: first configured)")
+    do.add_argument("--engine", choices=list(search.ENGINES),
+                    help="search backend (default: duckduckgo — no key; or a configured API backend)")
     do.add_argument("--searx-url", metavar="URL", dest="searx_url",
                     help="SearXNG instance URL (or WRAITH_SEARXNG_URL)")
     do.add_argument("--max", type=int, default=30, metavar="N", help="max results (default: 30)")
