@@ -494,6 +494,15 @@ def cmd_login(args) -> None:
         print(text)
 
 
+def _fmt_result(c, url: str) -> str:
+    """Dim the scheme and accent the query string so the host and the injectable
+    ``?param=`` stand out in a list of results."""
+    p = urlsplit(url)
+    scheme = c._c(DIM, f"{p.scheme}://") if p.scheme else ""
+    query = c._accent(f"?{p.query}") if p.query else ""
+    return scheme + p.netloc + p.path + query
+
+
 def cmd_dork(args) -> None:
     """Discover URLs from a search engine using a dork. Lists results only — it
     never sends a request to them (testing is the separate `wraith <url>` step)."""
@@ -513,6 +522,7 @@ def cmd_dork(args) -> None:
         c.bad("nothing to search — give a query, a preset (--params/--files/…), or --site")
         sys.exit(2)
 
+    with_params = args.with_params or args.params   # --params implies wanting parametric URLs
     c.info(f"dork   {query}")
     if not args.site:
         c.warn("no --site scope — discovery only; only test hosts you're authorized to")
@@ -520,7 +530,7 @@ def cmd_dork(args) -> None:
     try:
         results, engine = _drive(search.search(
             query, engine=args.engine or "", max_results=args.max, site=args.site or "",
-            searx_url=args.searx_url or "",
+            with_params=with_params, searx_url=args.searx_url or "",
             on_page=lambda e, p, n: c.trace(f"{e} page {p}: {n} result(s)", level=1),
         ), c)
     except search.SearchError as exc:
@@ -528,11 +538,14 @@ def cmd_dork(args) -> None:
         sys.exit(2)
 
     if not results:
-        c.warn("no results (check the dork, the backend config, or try another --engine)")
+        what = "parametric URLs" if with_params else "results"
+        c.warn(f"no {what} — try a broader dork or another --engine "
+               "(Google CSE honours inurl: far better than DuckDuckGo)")
         return
-    c.good(f"{len(results)} URL(s) via {engine}")
-    for r in results:
-        c.plain("  " + r.url)
+    c.good(f"{len(results)} result(s) · {engine}")
+    width = len(str(len(results)))
+    for i, r in enumerate(results, 1):
+        c.plain(f"  {c._c(DIM, f'{i:>{width}}.')} {_fmt_result(c, r.url)}")
     if args.output:
         Path(args.output).write_text("\n".join(r.url for r in results) + "\n", encoding="utf-8")
         c.info(f"saved {len(results)} URL(s) → {args.output}")
@@ -679,6 +692,9 @@ def build_parser() -> argparse.ArgumentParser:
     dg.add_argument("--listing", action="store_true", help='open directory listings (intitle:"index of")')
     do = dk.add_argument_group("dork options")
     do.add_argument("--site", metavar="DOMAIN", help="scope results to a domain (site:DOMAIN + post-filter)")
+    do.add_argument("--with-params", dest="with_params", action="store_true",
+                    help="keep only URLs that carry a ?param= — drops the blog posts a search "
+                         "engine mixes in (implied by --params)")
     do.add_argument("--engine", choices=list(search.ENGINES),
                     help="search backend (default: duckduckgo — no key; or a configured API backend)")
     do.add_argument("--searx-url", metavar="URL", dest="searx_url",

@@ -167,6 +167,14 @@ def dedupe(results) -> list:
     return out
 
 
+def has_query_params(url: str) -> bool:
+    """True if the URL carries a ``?key=value`` query parameter — the parametric
+    URLs worth injection-testing. Filters out the blog posts and cheat-sheets
+    *about* dorking that a search engine surfaces next to real targets."""
+    query = urlsplit(url).query
+    return any("=" in pair and pair.split("=", 1)[0].strip() for pair in query.split("&"))
+
+
 def in_scope(results, site: str) -> list:
     """Keep only results whose host is ``site`` or a subdomain of it — a post-hoc
     guard for when an engine doesn't fully honour the ``site:`` operator."""
@@ -239,14 +247,14 @@ def _page_request(engine, query, page, cfg):
 
 
 # ----------------------------------------------------------------- the search
-async def search(query, *, engine="", max_results=30, site="", on_page=None,
-                 searx_url="", google_key="", google_cx="", brave_key="") -> tuple:
+async def search(query, *, engine="", max_results=30, site="", with_params=False,
+                 on_page=None, searx_url="", google_key="", google_cx="", brave_key="") -> tuple:
     """Run ``query`` against a search backend; return ``(results, engine_name)``.
 
-    Results are de-duplicated, kept in ``site`` scope when given, and capped at
-    ``max_results``. Discovery only — the URLs are returned, never contacted.
-    Raises SearchError if a chosen backend (e.g. ``--engine google`` without its
-    keys) is misconfigured."""
+    Results are de-duplicated, kept in ``site`` scope when given, optionally
+    filtered to parametric URLs (``with_params``), and capped at ``max_results``.
+    Discovery only — the URLs are returned, never contacted. Raises SearchError if
+    a chosen backend (e.g. ``--engine google`` without its keys) is misconfigured."""
     eng, cfg = resolve_engine(engine, searx_url=searx_url, google_key=google_key,
                               google_cx=google_cx, brave_key=brave_key)
     if eng not in _EXTRACTORS:
@@ -269,4 +277,7 @@ async def search(query, *, engine="", max_results=30, site="", on_page=None,
             break
         page += 1
 
-    return in_scope(dedupe(results), site)[:max_results], eng
+    final = in_scope(dedupe(results), site)
+    if with_params:
+        final = [r for r in final if has_query_params(r.url)]
+    return final[:max_results], eng

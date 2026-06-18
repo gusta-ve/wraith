@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.2] - 2026-06-17
+
+### Added
+- **`wraith dork --with-params`** keeps only results that carry a `?param=`,
+  dropping the blog posts and cheat-sheets a search engine surfaces *about*
+  dorking next to real targets (a bare `inurl:php?id=` on DuckDuckGo is mostly
+  the former). The `--params` preset implies it.
+
+### Changed
+- **Cleaner `dork` output** — results are a numbered list with the scheme dimmed
+  and the query string accented, so the host and the injectable `?param=` stand
+  out instead of a flat wall of URLs.
+
 ## [0.9.1] - 2026-06-17
 
 ### Added

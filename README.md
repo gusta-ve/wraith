@@ -221,7 +221,9 @@ wraith dork --files --max 50 -o urls.txt   # exposed files (.env/.bak/.sql…), 
 Preset flags build the dork for you and combine with a query and each other:
 `--params` (also `--injec` — injectable-looking parameters), `--files` (exposed
 files), `--panels` (login/admin), `--listing` (open directory listings). `--site
-DOMAIN` scopes the search to one domain and drops anything off it.
+DOMAIN` scopes the search to one domain and drops anything off it. `--with-params`
+keeps only URLs carrying a `?param=` (the injectable ones), cutting the articles a
+search engine surfaces *about* dorking — `--params` implies it.
 
 By default it needs **no setup** — it scrapes DuckDuckGo's HTML endpoint (the same
 no-key path sqlmap's `-g` falls back to). For heavier or steadier use, configure an
@@ -233,9 +235,11 @@ export WRAITH_GOOGLE_API_KEY=…  WRAITH_GOOGLE_CX=…        # Google Programma
 export WRAITH_BRAVE_API_KEY=…                            # Brave Search API
 ```
 
-`--engine duckduckgo|searxng|google|brave` forces a specific one. Discovery is for
-targets you're authorized to assess — a dork points you at an attack surface, it
-doesn't grant permission to test it.
+`--engine duckduckgo|searxng|google|brave` forces a specific one. DuckDuckGo honours
+`inurl:` loosely, so expect some noise (`--with-params` trims it); for the cleanest
+`inurl:` dorking configure Google Programmable Search. Discovery is for targets
+you're authorized to assess — a dork points you at an attack surface, it doesn't
+grant permission to test it.
 
 ## Post-exploitation — [hickok](https://github.com/gusta-ve/hickok)
 

@@ -9,6 +9,7 @@ from wraith.core.search import (
     SearchResult,
     build_query,
     dedupe,
+    has_query_params,
     in_scope,
     parse_brave,
     parse_duckduckgo,
@@ -71,6 +72,32 @@ def test_in_scope_filters_to_domain_and_subdomains():
            SearchResult("http://evil.com/c"), SearchResult("http://nottarget.com/d")]
     assert {r.url for r in in_scope(res, "target.com")} == {"http://target.com/a", "http://api.target.com/b"}
     assert len(in_scope(res, "")) == 4          # no scope -> everything passes through
+
+
+def test_has_query_params():
+    assert has_query_params("http://h/facility.php?id=5") is True
+    assert has_query_params("http://h/x?a=1&b=2") is True
+    assert has_query_params("http://h/dorks/") is False          # a blog/listing page
+    assert has_query_params("https://gist.github.com/abc/123") is False
+    assert has_query_params("http://h/x?flag") is False          # no key=value
+
+
+def test_search_with_params_drops_non_parametric(monkeypatch):
+    for var in ("WRAITH_SEARXNG_URL", "WRAITH_GOOGLE_API_KEY", "WRAITH_GOOGLE_CX", "WRAITH_BRAVE_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    html = (
+        '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fblog.test%2Fdorks-list">B</a>'
+        '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftarget.test%2Fitem.php%3Fid%3D5">T</a>'
+    )
+
+    async def fake_fetch(url, **kw):
+        return Response(200, url, html, {})
+
+    monkeypatch.setattr(search, "fetch", fake_fetch)
+    everything, _ = asyncio.run(search.search("x", with_params=False))
+    parametric, _ = asyncio.run(search.search("x", with_params=True))
+    assert [r.url for r in everything] == ["https://blog.test/dorks-list", "https://target.test/item.php?id=5"]
+    assert [r.url for r in parametric] == ["https://target.test/item.php?id=5"]
 
 
 def test_resolve_engine_prefers_explicit_then_configured(monkeypatch):
