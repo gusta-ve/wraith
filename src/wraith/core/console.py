@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -61,6 +62,20 @@ def _lerp(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
+def _fit(text: str, width: int) -> str:
+    """Clip a plain (uncoloured) string to ``width`` columns, with an ellipsis.
+
+    A one-line status redraw must never be wider than the terminal: if it wraps
+    onto a second row, the carriage-return rewrite only clears the last row and
+    the wrapped remainder piles up — a stack of repeated lines instead of a
+    spinner in place."""
+    if width <= 0:
+        return ""
+    if len(text) <= width:
+        return text
+    return text[:width - 1] + "…" if width > 1 else text[:1]
+
+
 class Console:
     _ABBR = {"Critical": "CRIT", "High": "HIGH", "Medium": "MED", "Low": "LOW", "Info": "INFO"}
 
@@ -83,10 +98,16 @@ class Console:
 
     def spinner(self, frame: str, label: str) -> None:
         """Draw one frame of a 'still working' spinner — a single rewritten line,
-        TTY only, auto-cleared by _emit before any real output. No newline."""
+        TTY only, auto-cleared by _emit before any real output. No newline.
+
+        Clipped to the terminal width so a long phase list can't wrap and turn the
+        in-place redraw into a stack of repeated lines (the cascade on narrow
+        terminals)."""
         if not sys.stdout.isatty():
             return
-        sys.stdout.write("\r\033[K" + self._accent(frame) + " " + self._c(DIM, label))
+        width = shutil.get_terminal_size((80, 24)).columns
+        head, sep, tail = _fit(f"{frame} {label}", max(1, width - 1)).partition(" ")
+        sys.stdout.write("\r\033[K" + self._accent(head) + sep + self._c(DIM, tail))
         sys.stdout.flush()
         self._spinning = True
 

@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.4] - 2026-06-17
+
+### Fixed
+- **The progress spinner no longer stacks copies of itself on a narrow terminal.**
+  With many phases running, the `working · …` line could be wider than the
+  terminal and wrap; the carriage-return redraw then cleared only the last row and
+  the wrapped remainder piled up into a cascade of repeated lines (seen on Kali).
+  The line is now clipped to the terminal width, so it always redraws in place.
+
 ## [0.9.3] - 2026-06-17
 
 ### Added
