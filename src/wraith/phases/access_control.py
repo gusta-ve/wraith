@@ -140,7 +140,10 @@ class AccessControlPhase(Phase):
         for name, dmap in discovered.items():
             s = by_name[name]
             for url, r in dmap.items():
-                if not self._ok(r) or self._is_static(url) or not self._INT_RE_search(url):
+                if not self._ok(r) or self._is_static(url):
+                    continue
+                _, pq = self._pq(url)
+                if self._id_span(pq) is None:        # no object-id to mutate (skip ?page=/?hint=)
                     continue
                 path = urlsplit(url).path
                 if (name, path) in flagged:
@@ -224,12 +227,6 @@ class AccessControlPhase(Phase):
         return p.endswith(_STATIC_EXT) or p.startswith(("/_framework", "/_content"))
 
     @staticmethod
-    def _INT_RE_search(url) -> bool:
-        parts = urlsplit(url)
-        pq = parts.path + (("?" + parts.query) if parts.query else "")
-        return _INT_RE.search(pq) is not None
-
-    @staticmethod
     def _pq(url):
         """(urlsplit parts, ``path?query`` string) — the addressable part an id
         lives in. The port sits in netloc, so it's never seen as an id here."""
@@ -239,14 +236,16 @@ class AccessControlPhase(Phase):
     @staticmethod
     def _id_span(pq):
         """(start, end) of the integer to treat as the object id inside ``pq``
-        (``path?query``), or None.
+        (``path?query``), or None when there's no object-id candidate.
 
         Prefer the value of an id-like query parameter (name ``id`` or ending in
-        ``id``: ``user_id``, ``pid``…); otherwise the **last** integer in the
-        path. Taking the last path integer — never the first — is what stops a
-        version or date segment being mistaken for the id: ``/api/v1/users/5``
-        must probe ``5``, not the ``1`` in ``v1`` (and ``/2024/report/42`` must
-        probe ``42``, not the year)."""
+        ``id``: ``user_id``, ``pid``…); otherwise the **last** integer in the path.
+        A number that lives only in a *non*-id query parameter — ``?page=2``,
+        ``?hint=3``, ``?limit=10`` — is paging/UI state, not an object reference:
+        mutating it is an IDOR false positive, so it is deliberately not a
+        candidate (returns None). Taking the last path integer, never the first,
+        keeps a version or date segment (``/api/v1/``, ``/2024/``) from being
+        mistaken for the id."""
         path, sep, query = pq.partition("?")
         if query:
             offset = len(path) + len(sep)
@@ -259,15 +258,12 @@ class AccessControlPhase(Phase):
         path_ints = list(_INT_RE.finditer(path))
         if path_ints:
             return path_ints[-1].start(), path_ints[-1].end()
-        any_ints = list(_INT_RE.finditer(pq))      # fallback: a number only in the query
-        if any_ints:
-            return any_ints[-1].start(), any_ints[-1].end()
         return None
 
     @classmethod
     def _first_id(cls, url) -> int:
         _, pq = cls._pq(url)
-        start, end = cls._id_span(pq)              # callers gate on _INT_RE_search first
+        start, end = cls._id_span(pq)              # callers gate on _id_span() not being None
         return int(pq[start:end])
 
     @classmethod

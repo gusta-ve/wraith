@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.6] - 2026-06-19
+
+### Fixed
+- **No more IDOR false positive on a paging/UI parameter.** The access-control
+  phase mutated any number in the query string, so `?page=2` / `?hint=3` /
+  `?limit=10` — UI state, not object references — got IDOR-tested and could be
+  flagged. It now only mutates an id-like query parameter (`id`, `user_id`, …) or a
+  trailing path integer; a number that lives only in a non-id query parameter is no
+  longer a candidate.
+- **Time-based SQLi is now caught in a parenthesised context.** The time-based
+  family gained a `')` breakout, so a sleep injected into a `func('…')` / `IN ('…')`
+  sink is detected — a plain `1'` leaves that parenthesis unclosed (syntax error, no
+  delay) and was previously missed. (Both surfaced by a run against the deadwood
+  range; `examples/vuln_app.py` gains a `/watch` paren-context time sink to cover it.)
+
 ## [0.9.5] - 2026-06-18
 
 ### Added

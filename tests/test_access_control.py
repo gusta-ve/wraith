@@ -37,6 +37,17 @@ def test_id_like_query_param_wins_over_other_numbers():
     assert AC._with_id(url, 78) == "http://h/api/v1/widget?page=2&user_id=78"
 
 
+def test_non_id_query_params_are_not_idor_candidates():
+    # paging/UI numbers are not object references — mutating them was an IDOR
+    # false positive (the ?hint= the deadwood lab surfaced).
+    assert AC._id_span("/ledger?hint=3") is None
+    assert AC._id_span("/list?page=2") is None
+    assert AC._id_span("/items?limit=10&offset=20") is None
+    # real id candidates still resolve
+    assert AC._id_span("/users?id=5") is not None
+    assert AC._id_span("/account/orders/5") is not None       # trailing path id
+
+
 def test_ok_rejects_login_and_redirects():
     assert AC._ok(Response(200, "http://h/dashboard", "<p>ok</p>", {})) is True
     assert AC._ok(Response(200, "http://h/login", "<form>", {})) is False

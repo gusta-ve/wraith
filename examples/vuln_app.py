@@ -13,6 +13,7 @@ Planted issues (and the phase that finds each):
   /db?id=                 boolean-blind SQLi over a real sqlite DB (walk it with hickok sql)
   /news?id=               UNION-based SQLi (reflected) over the same DB
   /lookup?token=          honours an injected SQL sleep    -> injection (SQLi time-blind)
+  /watch?id=              sleeps only on a paren breakout  -> injection (SQLi time-blind, paren context)
   /ping?host=             shell metachars run (sleep)      -> injection (command injection)
   /render?name=           evaluates {{a*b}} server-side    -> injection (SSTI)
   /download?file=         ../../etc/passwd traversal       -> injection (path traversal/LFI)
@@ -128,6 +129,7 @@ class Handler(BaseHTTPRequestHandler):
                 '<a href="/items?id=1">Items</a> '
                 '<a href="/db?id=1">DB</a> '
                 '<a href="/lookup?token=abc">Lookup</a> '
+                '<a href="/watch?id=1">Watch</a> '
                 '<a href="/ping?host=127.0.0.1">Ping</a> '
                 '<a href="/render?name=guest">Greet</a> '
                 '<a href="/download?file=readme.txt">Download</a> '
@@ -194,6 +196,17 @@ class Handler(BaseHTTPRequestHandler):
             # VULNERABLE: time-blind SQLi — output is constant, only timing leaks.
             _sql_sleep((query.get("token") or ["abc"])[0])
             return self._send(200, page("<h1>Lookup</h1><p>Token processed.</p>"))
+
+        if path == "/watch":
+            # VULNERABLE: time-blind SQLi in a *parenthesised string* context — the
+            # value sits inside func('…'), so a sleep only fires when the payload
+            # closes both the quote and the paren ( ') ). A plain 1' (string) or 1
+            # (numeric) breakout leaves the paren unclosed and never delays — only
+            # the paren variant works, exercising that time-based context.
+            raw = (query.get("id") or ["1"])[0]
+            if "')" in raw:
+                _sql_sleep(raw)
+            return self._send(200, page("<h1>Watch</h1><p>access logged.</p>"))
 
         if path == "/db":
             # VULNERABLE: boolean-blind SQLi over a real database — the input is
