@@ -91,6 +91,57 @@ def write_json(ws, path=None) -> Path:
     return path
 
 
+_SEV_ORDER = ("Critical", "High", "Medium", "Low", "Info")
+
+
+def _severity_counts(ws) -> dict:
+    counts = {}
+    for f in ws.findings:
+        counts[f.severity.label] = counts.get(f.severity.label, 0) + 1
+    return counts
+
+
+def write_target(ws, results, command="", path=None) -> Path:
+    """A self-describing run summary — what was run, against what, and the upshot —
+    so the run folder makes sense months later without parsing any JSON."""
+    path = Path(path) if path else ws.workdir / "target.txt"
+    counts = _severity_counts(ws)
+    sev = " · ".join(f"{lbl} {counts[lbl]}" for lbl in _SEV_ORDER if counts.get(lbl)) or "none"
+    params = sorted({f.meta.get("param", "") for f in ws.findings if f.meta.get("param")})
+    rows = [
+        ("target", ws.target),
+        ("scope", ", ".join(ws.scope) if ws.scope else ws.target),
+        ("command", command),
+        ("started", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ws.started))),
+        ("phases", ", ".join(r.name for r in results)),
+        ("inventory", f"hosts {len(ws.hosts)} · services {len(ws.services)} · endpoints {len(ws.endpoints)}"),
+        ("params", ", ".join(params)),
+        ("findings", sev),
+    ]
+    lines = [f"{k:<10} {v}" for k, v in rows if v]
+    lines += ["", "files: workspace.json · findings.json · report.md · report.html · report.txt · log.txt"]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def write_text(ws, path=None) -> Path:
+    """A plain-text findings report (worst first) — the on-screen list, persisted,
+    so you don't have to parse the JSON to read what was found."""
+    path = Path(path) if path else ws.workdir / "report.txt"
+    lines = [f"wraith — {ws.target}", ""]
+    if not ws.findings:
+        lines.append("no findings.")
+    for f in sorted(ws.findings, key=lambda x: int(x.severity), reverse=True):
+        lines.append(f"[{f.severity.label:<8}] {f.title}")
+        if f.target:
+            lines.append(f"           {f.target}")
+        if f.evidence:
+            lines.append(f"           {f.evidence}")
+        lines.append("")
+    path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    return path
+
+
 def write_html(ws, results, path=None) -> Path:
     path = Path(path) if path else ws.workdir / "report.html"
     e = html.escape

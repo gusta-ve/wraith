@@ -30,6 +30,17 @@ def test_finding_and_summary_do_not_crash(capsys):
     assert "High 2" in out
 
 
+def test_console_tees_log_without_ansi(tmp_path):
+    log = tmp_path / "log.txt"
+    c = Console(color=True, banner=False)
+    c.tee_to(log)
+    c.good("found it")
+    c.info("more")
+    text = log.read_text()
+    assert "found it" in text and "more" in text
+    assert "\x1b[" not in text          # colour codes stripped in the persisted log
+
+
 def test_fit_clips_to_width():
     assert _fit("hello", 10) == "hello"           # fits -> unchanged
     assert _fit("hello world", 7) == "hello …"    # clipped with an ellipsis

@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.7] - 2026-06-19
+
+### Added
+- **Self-describing run folder.** Alongside the reports, each run now writes
+  `log.txt` (a plain-text transcript of the whole run, colour codes stripped — the
+  screen output persisted, and appended across re-runs of a target), `target.txt`
+  (what was run: the command, target, scope, phases, injectable params and the
+  severity tally — enough to make sense of the folder months later) and `report.txt`
+  (the findings, worst first, readable without parsing JSON). `findings.json` is
+  unchanged, so the hickok handoff keeps working.
+
 ## [0.9.6] - 2026-06-19
 
 ### Fixed

@@ -42,6 +42,21 @@ def test_markdown_escapes_pipes_in_cells(tmp_path):
     assert row.count("|") - row.count("\\|") == 5    # still a clean four-column row
 
 
+def test_target_and_text_reports(tmp_path):
+    ws = Workspace.create("example.com", base_dir=str(tmp_path))
+    ws.add_finding("SQL Injection in 'id'", Severity.HIGH, phase="injection",
+                   target="http://h/p.php", evidence="GET http://h/p.php [id]", meta={"param": "id"})
+    results = [PhaseResult("injection", "done", 0.1, 1)]
+    target = report.write_target(ws, results, "wraith example.com -p injection").read_text()
+    assert "example.com" in target
+    assert "wraith example.com -p injection" in target      # the command, to reproduce the run
+    assert "High 1" in target                               # severity tally
+    assert "id" in target                                   # the injectable param
+    txt = report.write_text(ws).read_text()
+    assert "SQL Injection in 'id'" in txt
+    assert "http://h/p.php" in txt
+
+
 def test_json_report_carries_handoff_fields(tmp_path):
     import json
     ws = Workspace.create("h", base_dir=str(tmp_path))

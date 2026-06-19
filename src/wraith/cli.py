@@ -337,6 +337,7 @@ def cmd_run(args) -> None:
         names = None
     phases = _select(names)
     ws = Workspace.create(target, base_dir=args.workdir)
+    c.tee_to(ws.workdir / "log.txt")      # persist a plain-text transcript of the run
     if getattr(args, "ports", None):      # explicit port spec replaces the default list
         from wraith.phases.tcp_scan import parse_ports
         resolved = parse_ports(args.ports)
@@ -360,9 +361,12 @@ def cmd_run(args) -> None:
     engine = Engine(ws, phases, c, concurrency=concurrency)
     results = _drive(engine.run(), c)
 
+    command = "wraith " + " ".join(sys.argv[1:])
     report_md = report.write_markdown(ws, results)
     report_html = report.write_html(ws, results)
     report_json = report.write_json(ws)
+    report_txt = report.write_text(ws)
+    report_target = report.write_target(ws, results, command)
     ws.save()
 
     c.rule("summary")
@@ -373,7 +377,10 @@ def cmd_run(args) -> None:
     c.info(f"workspace  {ws.workdir / 'workspace.json'}")
     c.info(f"report     {report_md}")
     c.info(f"report     {report_html}")
+    c.info(f"report     {report_txt}")
     c.info(f"findings   {report_json}")
+    c.info(f"summary    {report_target}")
+    c.info(f"log        {ws.workdir / 'log.txt'}")
 
     worst = max((f.severity for f in ws.findings), default=Severity.INFO)
     fail = bool(args.fail_on) and bool(ws.findings) and worst >= _SEVERITY_BY_NAME[args.fail_on]

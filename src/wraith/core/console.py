@@ -76,6 +76,15 @@ def _fit(text: str, width: int) -> str:
     return text[:width - 1] + "…" if width > 1 else text[:1]
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(s: str) -> str:
+    """Drop SGR colour codes — for measuring visible width and for the plain-text
+    run log (a terminal transcript without the escape soup)."""
+    return _ANSI_RE.sub("", s)
+
+
 class Console:
     _ABBR = {"Critical": "CRIT", "High": "HIGH", "Medium": "MED", "Low": "LOW", "Info": "INFO"}
 
@@ -88,6 +97,7 @@ class Console:
         self.verbose = int(verbose or 0)
         self.showdown = None  # a Showdown (see core/showdown.py) when the mode is on, else None
         self._spinning = False  # a working-spinner line is currently drawn (TTY)
+        self._logfile = None    # an open file once tee_to() is called -> plain-text run log
 
     # All printing goes through here so subclasses can buffer it.
     def _emit(self, text: str = "") -> None:
@@ -95,6 +105,21 @@ class Console:
             sys.stdout.write("\r\033[K")
             self._spinning = False
         print(text, flush=True)
+        if self._logfile is not None:   # mirror to the run log, colour codes stripped
+            try:
+                self._logfile.write(_strip_ansi(text) + "\n")
+                self._logfile.flush()
+            except OSError:
+                pass
+
+    def tee_to(self, path) -> None:
+        """Mirror every emitted line (ANSI stripped) to a plain-text log from here
+        on — a persisted transcript of the run, so the screen output isn't the
+        only record. Appends, so re-running a target keeps the history."""
+        try:
+            self._logfile = open(path, "a", encoding="utf-8")
+        except OSError:
+            self._logfile = None
 
     def spinner(self, frame: str, label: str) -> None:
         """Draw one frame of a 'still working' spinner — a single rewritten line,
@@ -178,7 +203,7 @@ class Console:
     def _center(self, text: str, center: float = 40) -> str:
         """Indent a (possibly coloured) line so its visible text centres on the
         ``center`` column — used to sit the reveal's words under the line-art."""
-        visible = re.sub(r"\x1b\[[0-9;]*m", "", text)
+        visible = _strip_ansi(text)
         return " " * max(0, round(center - len(visible) / 2)) + text
 
     def _art_center(self, name: str) -> float:
@@ -321,6 +346,7 @@ class BufferedConsole(Console):
         self.verbose = parent.verbose
         self.showdown = parent.showdown   # so per-phase findings get the live treatment
         self._spinning = False
+        self._logfile = None              # the parent tees on flush; the buffer never does
         self._parent = parent
         self._lines: list[str] = []
 
