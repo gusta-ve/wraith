@@ -92,10 +92,13 @@ from anywhere:
 
 ```
 ~/.local/share/wraith/runs/target.com-<ts>/
-  workspace.json   every host, service, endpoint and finding (resumable)
+  workspace.json    every host, service, endpoint and finding (resumable)
+  findings.json     structured handoff for hickok
   report.md
-  report.html      dark, self-contained
-  findings.json
+  report.html       dark, self-contained
+  report.txt        findings, worst first, readable without parsing
+  target.txt        what was run: command, phases, injectable params, tally
+  log.txt           plain-text transcript of the whole run (colour stripped)
 ```
 
 A run against the bundled lab (`examples/vuln_app.py`) — every finding shown is
@@ -225,9 +228,9 @@ DOMAIN` scopes the search to one domain and drops anything off it. `--with-param
 keeps only URLs carrying a `?param=` (the injectable ones), cutting the articles a
 search engine surfaces *about* dorking — `--params` implies it.
 
-By default it needs **no setup** — it scrapes DuckDuckGo's HTML endpoint (the same
-no-key path sqlmap's `-g` falls back to). For heavier or steadier use, configure an
-API backend and wraith prefers it automatically:
+By default it needs **no setup** — it scrapes DuckDuckGo's HTML endpoint with no
+API key required. For heavier or steadier use, configure an API backend and wraith
+prefers it automatically:
 
 ```bash
 export WRAITH_SEARXNG_URL=https://searx.example          # SearXNG (self-host or public)

@@ -55,7 +55,7 @@ LINES = [
     "  [HIGH] Reflected XSS in 'q'  /search",
     "  [MED ] Open Redirect in 'url'  /go",
     "",
-    "  [*] a way in — deal the hand to hickok:  hickok hand findings.json",
+    "  [*] a way in — deal the hand to hickok:  hickok call",
 ]
 
 PAD, CHARW, LINEH = 24, 8.55, 21

@@ -8,8 +8,8 @@ is a separate, deliberate step (``wraith <target>``), never something this modul
 does for you. There is, by design, no function here that touches a result.
 
 By default ``wraith dork`` needs **no setup**: it scrapes DuckDuckGo's HTML
-endpoint — the same no-key path sqlmap's ``-g`` falls back to. Configure an API
-backend for heavier or steadier use and wraith prefers it automatically;
+endpoint with no API key required. Configure an API backend for heavier or steadier
+use and wraith prefers it automatically;
 ``--engine`` forces a specific one:
 
   * ``duckduckgo``  DuckDuckGo HTML endpoint        (default — no key)
