@@ -86,7 +86,6 @@ _runs_dir = runs_dir   # the shared run-output location (defined in wraith.core.
 def _normalize_target(raw):
     """Accept a bare host/IP or a full URL and return (host, explicit_port|None),
     so `-u https://site:8443/path` scans the host `site` (and pins port 8443)."""
-    from urllib.parse import urlsplit
     parts = urlsplit(raw if "://" in raw else "//" + raw)
     host = parts.hostname or raw
     try:

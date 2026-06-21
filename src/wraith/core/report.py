@@ -205,7 +205,7 @@ def write_html(ws, results, path=None) -> Path:
 </style></head>
 <body><div class="wrap">
   <h1>wraith <span>// {e(ws.target)}</span></h1>
-  <div class="meta">offensive recon &amp; exploitation pipeline</div>
+  <div class="meta">offensive recon &amp; vulnerability detection pipeline</div>
   <div class="counts">
     <span>hosts <b>{len(ws.hosts)}</b></span>
     <span>services <b>{len(ws.services)}</b></span>

@@ -240,7 +240,7 @@ def _page_request(engine, query, page, cfg):
     if engine == "brave":
         if not cfg["brave_key"]:
             raise SearchError("brave needs WRAITH_BRAVE_API_KEY")
-        qs = urlencode({"q": query, "count": _PAGE_SIZE["brave"], "offset": page})
+        qs = urlencode({"q": query, "count": _PAGE_SIZE["brave"], "offset": page * _PAGE_SIZE["brave"]})
         return (f"https://api.search.brave.com/res/v1/web/search?{qs}",
                 {"X-Subscription-Token": cfg["brave_key"], "Accept": "application/json"})
     raise SearchError(f"unknown engine: {engine!r} (choose from {', '.join(ENGINES)})")
